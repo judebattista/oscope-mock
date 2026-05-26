@@ -49,8 +49,77 @@ def _cwd_handler(query, args, state):
         state.filesystem.cwd = args[0]
 
 
+def _push_error(state, code: int) -> None:
+    state.event_queue.append(code)
+    state.esr |= 0x08
+
+
+def _mkdir_handler(query, args, state):
+    if not args:
+        _push_error(state, 110)
+        return
+    real = virtual_to_real(args[0], state.filesystem)
+    if os.path.exists(real):
+        _push_error(state, 2004)
+        return
+    os.makedirs(real, exist_ok=False)
+
+
+def _rmdir_handler(query, args, state):
+    if not args:
+        _push_error(state, 110)
+        return
+    real = virtual_to_real(args[0], state.filesystem)
+    try:
+        os.rmdir(real)
+    except FileNotFoundError:
+        _push_error(state, 2002)
+    except OSError:
+        _push_error(state, 2003)
+
+
+def _delete_handler(query, args, state):
+    if not args:
+        _push_error(state, 110)
+        return
+    real = virtual_to_real(args[0], state.filesystem)
+    try:
+        os.remove(real)
+    except FileNotFoundError:
+        _push_error(state, 2002)
+
+
+def _rename_handler(query, args, state):
+    if len(args) < 2:
+        _push_error(state, 110)
+        return
+    src = virtual_to_real(args[0], state.filesystem)
+    dst = virtual_to_real(args[1], state.filesystem)
+    try:
+        os.rename(src, dst)
+    except FileNotFoundError:
+        _push_error(state, 2002)
+
+
+def _copy_handler(query, args, state):
+    if len(args) < 2:
+        _push_error(state, 110)
+        return
+    src = virtual_to_real(args[0], state.filesystem)
+    dst = virtual_to_real(args[1], state.filesystem)
+    try:
+        shutil.copy2(src, dst)
+    except FileNotFoundError:
+        _push_error(state, 2002)
+
+
 def register_filesystem_commands(dispatcher, state) -> None:
-    dispatcher.register("FILESYSTEM:CWD",  _cwd_handler)
-    dispatcher.register("FILESYSTEM:CWD?", _cwd_handler)
-    dispatcher.register("FILESYSTEM:DIR?", _dir_query)
-    dispatcher.register("FILESYSTEM?",     _dir_query)
+    dispatcher.register("FILESYSTEM:CWD",    _cwd_handler)
+    dispatcher.register("FILESYSTEM:CWD?",   _cwd_handler)
+    dispatcher.register("FILESYSTEM:DIR?",   _dir_query)
+    dispatcher.register("FILESYSTEM?",       _dir_query)
+    dispatcher.register("FILESYSTEM:MKDIR",  _mkdir_handler)
+    dispatcher.register("FILESYSTEM:RMDIR",  _rmdir_handler)
+    dispatcher.register("FILESYSTEM:DELETE", _delete_handler)
+    dispatcher.register("FILESYSTEM:RENAME", _rename_handler)
+    dispatcher.register("FILESYSTEM:COPY",   _copy_handler)

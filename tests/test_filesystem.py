@@ -142,3 +142,112 @@ def test_filesystem_query_alias(tmp_path):
     resp_dir = d.dispatch("FILESYSTEM:DIR", True, [], state)
     resp_alias = d.dispatch("FILESYSTEM", True, [], state)
     assert resp_dir == resp_alias
+
+
+# --- MKDir ---
+
+def test_mkdir_creates_directory(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, [r"C:\TekScope\NewDir"], state)
+    assert os.path.isdir(virtual_to_real(r"C:\TekScope\NewDir", state.filesystem))
+
+
+def test_mkdir_already_exists_pushes_2004(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, [r"C:\TekScope\Waveforms"], state)
+    assert 2004 in state.event_queue
+
+
+# --- RMDir ---
+
+def test_rmdir_removes_empty_dir(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, [r"C:\TekScope\Empty"], state)
+    d.dispatch("FILESYSTEM:RMDIR", False, [r"C:\TekScope\Empty"], state)
+    assert not os.path.exists(virtual_to_real(r"C:\TekScope\Empty", state.filesystem))
+
+
+def test_rmdir_non_empty_pushes_2003(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    real = virtual_to_real(r"C:\TekScope\Waveforms", state.filesystem)
+    open(os.path.join(real, "x.wfm"), 'w').close()
+    d.dispatch("FILESYSTEM:RMDIR", False, [r"C:\TekScope\Waveforms"], state)
+    assert 2003 in state.event_queue
+
+
+# --- DELEte ---
+
+def test_delete_removes_file(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    real = virtual_to_real(state.filesystem.cwd, state.filesystem)
+    fpath = os.path.join(real, "todelete.wfm")
+    open(fpath, 'w').close()
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:DELETE", False, [r"C:\TekScope\todelete.wfm"], state)
+    assert not os.path.exists(fpath)
+
+
+def test_delete_missing_file_pushes_2002(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:DELETE", False, [r"C:\TekScope\nosuchfile.wfm"], state)
+    assert 2002 in state.event_queue
+
+
+# --- RENAme ---
+
+def test_rename_file(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    real = virtual_to_real(state.filesystem.cwd, state.filesystem)
+    open(os.path.join(real, "old.wfm"), 'w').close()
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:RENAME", False,
+               [r"C:\TekScope\old.wfm", r"C:\TekScope\new.wfm"], state)
+    assert not os.path.exists(os.path.join(real, "old.wfm"))
+    assert os.path.exists(os.path.join(real, "new.wfm"))
+
+
+def test_rename_missing_pushes_2002(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:RENAME", False,
+               [r"C:\TekScope\ghost.wfm", r"C:\TekScope\new.wfm"], state)
+    assert 2002 in state.event_queue
+
+
+# --- COPy ---
+
+def test_copy_file(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    real = virtual_to_real(state.filesystem.cwd, state.filesystem)
+    src = os.path.join(real, "src.wfm")
+    with open(src, 'w') as f:
+        f.write("data")
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:COPY", False,
+               [r"C:\TekScope\src.wfm", r"C:\TekScope\dst.wfm"], state)
+    dst = os.path.join(real, "dst.wfm")
+    assert os.path.exists(dst)
+    assert open(dst).read() == "data"
+
+
+def test_copy_missing_pushes_2002(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:COPY", False,
+               [r"C:\TekScope\ghost.wfm", r"C:\TekScope\dst.wfm"], state)
+    assert 2002 in state.event_queue
