@@ -251,3 +251,63 @@ def test_copy_missing_pushes_2002(tmp_path):
     d.dispatch("FILESYSTEM:COPY", False,
                [r"C:\TekScope\ghost.wfm", r"C:\TekScope\dst.wfm"], state)
     assert 2002 in state.event_queue
+
+
+# --- READFile / PRInt ---
+
+def test_readfile_returns_bytes(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    real = virtual_to_real(state.filesystem.cwd, state.filesystem)
+    fpath = os.path.join(real, "wave.wfm")
+    with open(fpath, 'wb') as f:
+        f.write(b"\x00\x01\x02\x03")
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm", "GPIB"], state)
+    assert resp == b"\x00\x01\x02\x03"
+
+
+def test_print_identical_to_readfile(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    real = virtual_to_real(state.filesystem.cwd, state.filesystem)
+    fpath = os.path.join(real, "wave.wfm")
+    with open(fpath, 'wb') as f:
+        f.write(b"hello")
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:PRINT", False, [r"C:\TekScope\wave.wfm", "GPIB"], state)
+    assert resp == b"hello"
+
+
+def test_readfile_missing_pushes_2002(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\nope.wfm"], state)
+    assert resp is None
+    assert 2002 in state.event_queue
+
+
+# --- WRITEFile ---
+
+def test_writefile_creates_file(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False,
+               [r"C:\TekScope\out.wfm", b"\xDE\xAD\xBE\xEF"], state)
+    real = virtual_to_real(r"C:\TekScope\out.wfm", state.filesystem)
+    assert os.path.exists(real)
+    assert open(real, 'rb').read() == b"\xDE\xAD\xBE\xEF"
+
+
+def test_writefile_overwrites_existing(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False,
+               [r"C:\TekScope\out.wfm", b"first"], state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False,
+               [r"C:\TekScope\out.wfm", b"second"], state)
+    real = virtual_to_real(r"C:\TekScope\out.wfm", state.filesystem)
+    assert open(real, 'rb').read() == b"second"

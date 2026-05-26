@@ -113,13 +113,41 @@ def _copy_handler(query, args, state):
         _push_error(state, 2002)
 
 
+def _read_file_handler(query, args, state):
+    if not args:
+        _push_error(state, 110)
+        return None
+    real = virtual_to_real(args[0], state.filesystem)
+    try:
+        with open(real, 'rb') as f:
+            return f.read()
+    except FileNotFoundError:
+        _push_error(state, 2002)
+        return None
+
+
+def _write_file_handler(query, args, state):
+    if len(args) < 2:
+        _push_error(state, 110)
+        return
+    real = virtual_to_real(args[0], state.filesystem)
+    data = args[1]
+    if isinstance(data, str):
+        data = data.encode('latin-1')
+    with open(real, 'wb') as f:
+        f.write(data)
+
+
 def register_filesystem_commands(dispatcher, state) -> None:
-    dispatcher.register("FILESYSTEM:CWD",    _cwd_handler)
-    dispatcher.register("FILESYSTEM:CWD?",   _cwd_handler)
-    dispatcher.register("FILESYSTEM:DIR?",   _dir_query)
-    dispatcher.register("FILESYSTEM?",       _dir_query)
-    dispatcher.register("FILESYSTEM:MKDIR",  _mkdir_handler)
-    dispatcher.register("FILESYSTEM:RMDIR",  _rmdir_handler)
-    dispatcher.register("FILESYSTEM:DELETE", _delete_handler)
-    dispatcher.register("FILESYSTEM:RENAME", _rename_handler)
-    dispatcher.register("FILESYSTEM:COPY",   _copy_handler)
+    dispatcher.register("FILESYSTEM:CWD",       _cwd_handler)
+    dispatcher.register("FILESYSTEM:CWD?",      _cwd_handler)
+    dispatcher.register("FILESYSTEM:DIR?",      _dir_query)
+    dispatcher.register("FILESYSTEM?",          _dir_query)
+    dispatcher.register("FILESYSTEM:MKDIR",     _mkdir_handler)
+    dispatcher.register("FILESYSTEM:RMDIR",     _rmdir_handler)
+    dispatcher.register("FILESYSTEM:DELETE",    _delete_handler)
+    dispatcher.register("FILESYSTEM:RENAME",    _rename_handler)
+    dispatcher.register("FILESYSTEM:COPY",      _copy_handler)
+    dispatcher.register("FILESYSTEM:READFILE",  _read_file_handler)
+    dispatcher.register("FILESYSTEM:PRINT",     _read_file_handler)
+    dispatcher.register("FILESYSTEM:WRITEFILE", _write_file_handler)
