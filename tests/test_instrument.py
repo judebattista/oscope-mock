@@ -155,3 +155,19 @@ def test_header_query_alias():
     d = make_dispatcher(state)
     resp = d.dispatch("HEADER", True, [], state)
     assert resp == "1"
+
+
+def test_hdr_invalid_value_pushes_error():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    d.dispatch("HDR", False, ["INVALID"], state)
+    assert 110 in state.event_queue
+    assert state.headers is True  # unchanged
+
+
+def test_rst_resets_headers():
+    state = make_full_state()
+    state.headers = False
+    d = make_dispatcher(state)
+    d.dispatch("*RST", False, [], state)
+    assert state.headers is True

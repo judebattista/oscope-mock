@@ -311,3 +311,13 @@ def test_writefile_overwrites_existing(tmp_path):
                [r"C:\TekScope\out.wfm", b"second"], state)
     real = virtual_to_real(r"C:\TekScope\out.wfm", state.filesystem)
     assert open(real, 'rb').read() == b"second"
+
+
+def test_writefile_missing_parent_pushes_2002(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    # Try to write to a directory that doesn't exist
+    d.dispatch("FILESYSTEM:WRITEFILE", False,
+               [r"C:\TekScope\NonExistentDir\file.wfm", b"data"], state)
+    assert 2002 in state.event_queue

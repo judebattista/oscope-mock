@@ -134,8 +134,11 @@ def _write_file_handler(query, args, state):
     data = args[1]
     if isinstance(data, str):
         data = data.encode('latin-1')
-    with open(real, 'wb') as f:
-        f.write(data)
+    try:
+        with open(real, 'wb') as f:
+            f.write(data)
+    except FileNotFoundError:
+        _push_error(state, 2002)
 
 
 def register_filesystem_commands(dispatcher, state) -> None:

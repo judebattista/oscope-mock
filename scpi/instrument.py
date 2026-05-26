@@ -30,6 +30,7 @@ def register_instrument_commands(dispatcher, state: InstrumentState) -> None:
 
     def rst(query, args, s):
         s.filesystem.cwd = r"C:\TekScope"
+        s.headers = True
         s.event_queue.clear()
 
     def cls(query, args, s):
@@ -54,7 +55,11 @@ def register_instrument_commands(dispatcher, state: InstrumentState) -> None:
         if query:
             return "1" if s.headers else "0"
         if args:
-            s.headers = _hdr_value(args[0])
+            try:
+                s.headers = _hdr_value(args[0])
+            except ValueError:
+                s.event_queue.append(110)
+                s.esr |= 0x08
 
     dispatcher.register("*IDN?",    idn)
     dispatcher.register("*RST",     rst)
