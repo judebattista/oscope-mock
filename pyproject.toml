@@ -1,2 +1,35 @@
+[project]
+name = "oscope-mock"
+version = "0.1.0"
+description = "Mock Tektronix TDS5000B oscilloscope that speaks SCPI over raw TCP."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.17",
+    "mypy>=2.4",
+    "pre-commit>=4.7",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C90", "N"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["scpi", "server.py"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tb=short"

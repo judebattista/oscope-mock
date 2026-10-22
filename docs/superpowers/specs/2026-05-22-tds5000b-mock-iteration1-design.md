@@ -22,7 +22,7 @@ oscope-mock/
 │   ├── dispatcher.py      # routes canonical command keys to registered handlers
 │   ├── filesystem.py      # all 11 FILESystem handlers + FileSystemState
 │   └── instrument.py      # *IDN?, *RST, *CLS, *ESR?, *STB?, *OPC, HDR/HEADer
-└── requirements.txt       # stdlib only — no dependencies
+└── pyproject.toml         # stdlib-only runtime; dev tools in the `dev` dependency group
 ```
 
 ---
@@ -78,9 +78,9 @@ All handlers receive a single `InstrumentState` object:
 ```python
 @dataclass
 class InstrumentState:
-    headers: bool = True          # HDR/HEADer setting
-    esr: int = 0                  # Event Status Register
-    stb: int = 0                  # Status Byte Register
+    headers: bool = True  # HDR/HEADer setting
+    esr: int = 0  # Event Status Register
+    stb: int = 0  # Status Byte Register
     event_queue: list = field(default_factory=list)
     filesystem: FileSystemState = field(default_factory=FileSystemState)
 ```
@@ -117,8 +117,8 @@ Minimal IEEE 488.2 required commands:
 ```python
 @dataclass
 class FileSystemState:
-    cwd: str = r"C:\TekScope"   # Windows-style virtual CWD
-    root: str = ""              # real host root dir (set from --fs-root or tempdir)
+    cwd: str = r"C:\TekScope"  # Windows-style virtual CWD
+    root: str = ""  # real host root dir (set from --fs-root or tempdir)
 ```
 
 ### Path Mapping
