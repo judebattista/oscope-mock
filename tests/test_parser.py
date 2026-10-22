@@ -1,5 +1,4 @@
-import pytest
-from scpi.parser import resolve_node, parse_line, ParsedCommand
+from scpi.parser import ParsedCommand, parse_line, resolve_node
 
 
 def test_resolve_long_form():
@@ -109,6 +108,7 @@ def test_resolve_unknown_passthrough():
 
 # --- parse_line tests ---
 
+
 def test_parse_idn_query():
     cmds = parse_line("*IDN?")
     assert cmds == [ParsedCommand(key="*IDN", query=True, args=[])]
@@ -126,7 +126,9 @@ def test_parse_cwd_query():
 
 def test_parse_cwd_set():
     cmds = parse_line(r'FILESYSTEM:CWD "C:\TekScope\Waveforms"')
-    assert cmds == [ParsedCommand(key="FILESYSTEM:CWD", query=False, args=[r"C:\TekScope\Waveforms"])]
+    assert cmds == [
+        ParsedCommand(key="FILESYSTEM:CWD", query=False, args=[r"C:\TekScope\Waveforms"])
+    ]
 
 
 def test_parse_short_form():
@@ -144,7 +146,9 @@ def test_parse_compound_commands():
 
 def test_parse_mkdir():
     cmds = parse_line(r'FILESYSTEM:MKDIR "C:\TekScope\NewDir"')
-    assert cmds == [ParsedCommand(key="FILESYSTEM:MKDIR", query=False, args=[r"C:\TekScope\NewDir"])]
+    assert cmds == [
+        ParsedCommand(key="FILESYSTEM:MKDIR", query=False, args=[r"C:\TekScope\NewDir"])
+    ]
 
 
 def test_parse_hdr_on():
@@ -170,17 +174,29 @@ def test_parse_strips_crlf():
 def test_parse_writefile_definite_block():
     # #15hello — 1 digit of length, length=5, data="hello"
     cmds = parse_line('FILESYSTEM:WRITEFILE "path.wfm",#15hello')
-    assert cmds == [ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["path.wfm", b"hello"])]
+    assert cmds == [
+        ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["path.wfm", b"hello"])
+    ]
 
 
 def test_parse_writefile_two_digit_block():
     # #210ab — 2 digits of length, length=10, not enough data (edge case)
     data = "abcdefghij"
     cmds = parse_line(f'FILESYSTEM:WRITEFILE "f.wfm",#2{len(data)}{data}')
-    assert cmds == [ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["f.wfm", data.encode()])]
+    assert cmds == [
+        ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["f.wfm", data.encode()])
+    ]
 
 
 def test_parse_writefile_indefinite_block():
     # #0hello — indefinite, terminated by \n (stripped before parse_line is called)
     cmds = parse_line('FILESYSTEM:WRITEFILE "f.wfm",#0hello')
-    assert cmds == [ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["f.wfm", b"hello"])]
+    assert cmds == [
+        ParsedCommand(key="FILESYSTEM:WRITEFILE", query=False, args=["f.wfm", b"hello"])
+    ]
+
+
+def test_parse_line_space_after_comma_ignores_whitespace():
+    # The manual writes READFile as `"<file>", GPIb` — with a space after the comma.
+    cmds = parse_line('FILESystem:READFile "x", GPIb')
+    assert cmds == [ParsedCommand(key="FILESYSTEM:READFILE", query=False, args=["x", "GPIb"])]
