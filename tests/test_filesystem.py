@@ -363,7 +363,7 @@ def test_readfile_missing_file_pushes_error_and_returns_none(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
-    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\nope.wfm"], state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\nope.wfm", "GPIB"], state)
     assert resp is None
     assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
@@ -496,3 +496,33 @@ def test_readfile_path_through_a_file_pushes_file_name_not_found(tmp_path):
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\setup.set\child", "GPIB"], state)
     assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
+
+
+def test_readfile_without_port_pushes_missing_parameter(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    open(virtual_to_real(r"C:\TekScope\wave.wfm", state.filesystem), "w").close()
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm"], state)
+    assert resp is None
+    assert EventCode.MISSING_PARAMETER in state.event_queue
+
+
+def test_readfile_unsupported_port_pushes_invalid_character_data(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    open(virtual_to_real(r"C:\TekScope\wave.wfm", state.filesystem), "w").close()
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm", "RS232"], state)
+    assert resp is None
+    assert EventCode.INVALID_CHARACTER_DATA in state.event_queue
+
+
+def test_readfile_short_form_port_returns_bytes(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    with open(virtual_to_real(r"C:\TekScope\wave.wfm", state.filesystem), "wb") as f:
+        f.write(b"abc")
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm", "gpi"], state)
+    assert resp == b"abc"

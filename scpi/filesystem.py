@@ -169,11 +169,15 @@ def _copy_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respo
 
 
 def _read_file_handler(query: bool, args: list[Arg], state: InstrumentState) -> Response:
-    paths = _str_args(args, 1, state)
-    if paths is None:
+    path_and_port = _str_args(args, 2, state)
+    if path_and_port is None:
+        return None
+    path, port = path_and_port
+    if port.upper() not in ("GPIB", "GPI"):
+        state.push_error(EventCode.INVALID_CHARACTER_DATA)
         return None
     data: bytes | None = None
-    with _os_errors_as_events(state), open(virtual_to_real(paths[0], state.filesystem), "rb") as f:
+    with _os_errors_as_events(state), open(virtual_to_real(path, state.filesystem), "rb") as f:
         data = f.read()
     return data
 

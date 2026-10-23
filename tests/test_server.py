@@ -109,7 +109,7 @@ def test_server_writefile_then_readfile_returns_payload(server_addr):
     with socket.create_connection(server_addr, timeout=3) as sock:
         sock.sendall((write_cmd + "\n").encode())
         time.sleep(0.1)
-        sock.sendall(b'FILESYSTEM:READFILE "C:\\TekScope\\inttest.wfm"\n')
+        sock.sendall(b'FILESYSTEM:READFILE "C:\\TekScope\\inttest.wfm",GPIb\n')
         resp = b""
         sock.settimeout(1.0)
         try:

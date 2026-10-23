@@ -162,7 +162,7 @@ C:\TekScope\Settings\
 | `FILESystem:DELEte` | `"<path>"` | `os.remove(path)`; directories are refused (257) | none |
 | `FILESystem:DIR?` | — | list entries in CWD | `:FILESYSTEM:DIR ".","..","wfm1.wfm"` |
 | `FILESystem:MKDir` | `"<path>"` | `os.mkdir(path)` — single level; parent must exist | none |
-| `FILESystem:PRInt` | `"<path>",GPIb` | read file bytes, send raw on TCP channel; `GPIb` arg accepted but ignored (TCP-only mock) | file contents |
+| `FILESystem:PRInt` | `"<path>",GPIb` | read file bytes, send raw on TCP channel with no terminator; `GPIb` is required (109 if missing, 141 for any other port) | file contents |
 | `FILESystem:READFile` | `"<path>",GPIb` | identical to PRInt | file contents |
 | `FILESystem:RENAme` | `"<old>","<new>"` | `os.rename(old, new)` | none |
 | `FILESystem:RMDir` | `"<path>"` | `os.rmdir(path)` (fails if non-empty) | none |
