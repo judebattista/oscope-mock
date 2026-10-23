@@ -4,7 +4,7 @@ from scpi.instrument import register_instrument_commands
 from scpi.state import InstrumentState
 
 
-def test_instrument_state_defaults_headers_on_and_registers_clear():
+def test_instrument_state_defaults_headers_on_and_registers_clear() -> None:
     s = InstrumentState()
     assert s.headers is True
     assert s.esr == 0
@@ -12,31 +12,31 @@ def test_instrument_state_defaults_headers_on_and_registers_clear():
     assert s.event_queue == []
 
 
-def test_instrument_state_instances_have_independent_event_queues():
+def test_instrument_state_instances_have_independent_event_queues() -> None:
     a = InstrumentState()
     b = InstrumentState()
-    a.event_queue.append(110)
+    a.event_queue.append(EventCode.COMMAND_HEADER_ERROR)
     assert b.event_queue == []
 
 
-def make_full_state():
+def make_full_state() -> InstrumentState:
     return InstrumentState()
 
 
-def make_dispatcher():
+def make_dispatcher() -> Dispatcher:
     d = Dispatcher()
     register_instrument_commands(d)
     return d
 
 
-def test_idn_query_returns_identity_string():
+def test_idn_query_returns_identity_string() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("*IDN", True, [], state)
     assert resp == "TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
 
 
-def test_rst_after_cwd_change_resets_cwd_to_default():
+def test_rst_after_cwd_change_resets_cwd_to_default() -> None:
     state = make_full_state()
     state.filesystem.cwd = r"C:\TekScope\Waveforms"
     d = make_dispatcher()
@@ -44,19 +44,19 @@ def test_rst_after_cwd_change_resets_cwd_to_default():
     assert state.filesystem.cwd == r"C:\TekScope"
 
 
-def test_rst_with_queued_events_clears_event_queue():
+def test_rst_with_queued_events_clears_event_queue() -> None:
     state = make_full_state()
-    state.event_queue.append(110)
+    state.event_queue.append(EventCode.COMMAND_HEADER_ERROR)
     d = make_dispatcher()
     d.dispatch("*RST", False, [], state)
     assert state.event_queue == []
 
 
-def test_cls_with_set_registers_clears_registers_and_queue():
+def test_cls_with_set_registers_clears_registers_and_queue() -> None:
     state = make_full_state()
     state.esr = 0xFF
     state.stb = 0xFF
-    state.event_queue.append(110)
+    state.event_queue.append(EventCode.COMMAND_HEADER_ERROR)
     d = make_dispatcher()
     d.dispatch("*CLS", False, [], state)
     assert state.esr == 0
@@ -64,7 +64,7 @@ def test_cls_with_set_registers_clears_registers_and_queue():
     assert state.event_queue == []
 
 
-def test_esr_query_with_bits_set_returns_value_and_clears():
+def test_esr_query_with_bits_set_returns_value_and_clears() -> None:
     state = make_full_state()
     state.esr = 42
     d = make_dispatcher()
@@ -73,7 +73,7 @@ def test_esr_query_with_bits_set_returns_value_and_clears():
     assert state.esr == 0
 
 
-def test_stb_query_returns_status_byte():
+def test_stb_query_returns_status_byte() -> None:
     state = make_full_state()
     state.stb = 7
     d = make_dispatcher()
@@ -81,28 +81,28 @@ def test_stb_query_returns_status_byte():
     assert resp == "7"
 
 
-def test_opc_command_sets_opc_bit():
+def test_opc_command_sets_opc_bit() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("*OPC", False, [], state)
     assert state.esr & 0x01  # OPC bit
 
 
-def test_opc_query_returns_one():
+def test_opc_query_returns_one() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("*OPC", True, [], state)
     assert resp == "1"
 
 
-def test_hdr_off_disables_headers():
+def test_hdr_off_disables_headers() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("HDR", False, ["OFF"], state)
     assert state.headers is False
 
 
-def test_hdr_on_enables_headers():
+def test_hdr_on_enables_headers() -> None:
     state = make_full_state()
     state.headers = False
     d = make_dispatcher()
@@ -110,14 +110,14 @@ def test_hdr_on_enables_headers():
     assert state.headers is True
 
 
-def test_hdr_nr1_zero_disables_headers():
+def test_hdr_nr1_zero_disables_headers() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("HDR", False, ["0"], state)
     assert state.headers is False
 
 
-def test_hdr_nr1_one_enables_headers():
+def test_hdr_nr1_one_enables_headers() -> None:
     state = make_full_state()
     state.headers = False
     d = make_dispatcher()
@@ -125,14 +125,14 @@ def test_hdr_nr1_one_enables_headers():
     assert state.headers is True
 
 
-def test_hdr_query_headers_on_returns_one():
+def test_hdr_query_headers_on_returns_one() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("HDR", True, [], state)
     assert resp == "1"
 
 
-def test_hdr_query_headers_off_returns_zero():
+def test_hdr_query_headers_off_returns_zero() -> None:
     state = make_full_state()
     state.headers = False
     d = make_dispatcher()
@@ -140,21 +140,21 @@ def test_hdr_query_headers_off_returns_zero():
     assert resp == "0"
 
 
-def test_header_long_form_off_disables_headers():
+def test_header_long_form_off_disables_headers() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("HEADER", False, ["OFF"], state)
     assert state.headers is False
 
 
-def test_header_long_form_query_returns_header_state():
+def test_header_long_form_query_returns_header_state() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("HEADER", True, [], state)
     assert resp == "1"
 
 
-def test_hdr_invalid_value_pushes_error_and_keeps_headers():
+def test_hdr_invalid_value_pushes_error_and_keeps_headers() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("HDR", False, ["INVALID"], state)
@@ -162,7 +162,7 @@ def test_hdr_invalid_value_pushes_error_and_keeps_headers():
     assert state.headers is True  # unchanged
 
 
-def test_rst_with_headers_off_restores_headers_on():
+def test_rst_with_headers_off_restores_headers_on() -> None:
     state = make_full_state()
     state.headers = False
     d = make_dispatcher()
@@ -170,7 +170,7 @@ def test_rst_with_headers_off_restores_headers_on():
     assert state.headers is True
 
 
-def test_evmsg_query_after_esr_read_returns_code_and_message():
+def test_evmsg_query_after_esr_read_returns_code_and_message() -> None:
     state = make_full_state()
     d = make_dispatcher()
     state.push_error(EventCode.COMMAND_HEADER_ERROR)
@@ -179,7 +179,7 @@ def test_evmsg_query_after_esr_read_returns_code_and_message():
     assert resp == '110,"Command header error"'
 
 
-def test_evmsg_query_after_reading_event_reports_queue_empty():
+def test_evmsg_query_after_reading_event_reports_queue_empty() -> None:
     state = make_full_state()
     d = make_dispatcher()
     state.push_error(EventCode.COMMAND_HEADER_ERROR)
@@ -189,7 +189,7 @@ def test_evmsg_query_after_reading_event_reports_queue_empty():
     assert resp == '0,"No events to report; queue empty"'
 
 
-def test_evmsg_query_without_esr_read_reports_new_events_pending():
+def test_evmsg_query_without_esr_read_reports_new_events_pending() -> None:
     state = make_full_state()
     d = make_dispatcher()
     state.push_error(EventCode.COMMAND_HEADER_ERROR)
@@ -197,14 +197,14 @@ def test_evmsg_query_without_esr_read_reports_new_events_pending():
     assert resp == '1,"No events to report; new events pending *ESR?"'
 
 
-def test_evmsg_query_no_events_reports_queue_empty():
+def test_evmsg_query_no_events_reports_queue_empty() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("EVMSG", True, [], state)
     assert resp == '0,"No events to report; queue empty"'
 
 
-def test_esr_query_discards_events_summarized_by_previous_read():
+def test_esr_query_discards_events_summarized_by_previous_read() -> None:
     state = make_full_state()
     d = make_dispatcher()
     state.push_error(EventCode.COMMAND_HEADER_ERROR)
@@ -217,7 +217,7 @@ def test_esr_query_discards_events_summarized_by_previous_read():
     assert second == '0,"No events to report; queue empty"'
 
 
-def test_cls_after_esr_read_discards_summarized_events():
+def test_cls_after_esr_read_discards_summarized_events() -> None:
     state = make_full_state()
     d = make_dispatcher()
     state.push_error(EventCode.COMMAND_HEADER_ERROR)
@@ -227,7 +227,7 @@ def test_cls_after_esr_read_discards_summarized_events():
     assert resp == '0,"No events to report; queue empty"'
 
 
-def test_hdr_nonzero_nr1_enables_headers():
+def test_hdr_nonzero_nr1_enables_headers() -> None:
     state = make_full_state()
     state.headers = False
     d = make_dispatcher()
@@ -235,14 +235,14 @@ def test_hdr_nonzero_nr1_enables_headers():
     assert state.headers is True
 
 
-def test_verbose_query_initially_returns_one():
+def test_verbose_query_initially_returns_one() -> None:
     state = make_full_state()
     d = make_dispatcher()
     resp = d.dispatch("VERBOSE", True, [], state)
     assert resp == "1"
 
 
-def test_verbose_off_then_query_returns_zero():
+def test_verbose_off_then_query_returns_zero() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("VERBOSE", False, ["OFF"], state)
@@ -251,7 +251,7 @@ def test_verbose_off_then_query_returns_zero():
     assert state.event_queue == []
 
 
-def test_verbose_invalid_value_pushes_invalid_character_data():
+def test_verbose_invalid_value_pushes_invalid_character_data() -> None:
     state = make_full_state()
     d = make_dispatcher()
     d.dispatch("VERBOSE", False, ["LOUD"], state)

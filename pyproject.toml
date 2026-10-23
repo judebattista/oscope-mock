@@ -28,7 +28,7 @@ max-complexity = 8
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["scpi", "server.py"]
+files = ["scpi", "server.py", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

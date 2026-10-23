@@ -1,12 +1,13 @@
 from scpi.dispatcher import Dispatcher
+from scpi.parser import Arg
 from scpi.state import InstrumentState
 
 
-def make_state():
+def make_state() -> InstrumentState:
     return InstrumentState()
 
 
-def test_dispatch_registered_command_returns_handler_response():
+def test_dispatch_registered_command_returns_handler_response() -> None:
     d = Dispatcher()
     d.register("PING", lambda query, args, state: "PONG")
     state = make_state()
@@ -14,7 +15,7 @@ def test_dispatch_registered_command_returns_handler_response():
     assert result == "PONG"
 
 
-def test_dispatch_registered_query_returns_handler_response():
+def test_dispatch_registered_query_returns_handler_response() -> None:
     d = Dispatcher()
     d.register("PING?", lambda query, args, state: "PONG")
     state = make_state()
@@ -22,7 +23,7 @@ def test_dispatch_registered_query_returns_handler_response():
     assert result == "PONG"
 
 
-def test_dispatch_handler_without_response_returns_none():
+def test_dispatch_handler_without_response_returns_none() -> None:
     d = Dispatcher()
     d.register("NOP", lambda query, args, state: None)
     state = make_state()
@@ -30,7 +31,7 @@ def test_dispatch_handler_without_response_returns_none():
     assert result is None
 
 
-def test_dispatch_unknown_command_pushes_command_header_error():
+def test_dispatch_unknown_command_pushes_command_header_error() -> None:
     d = Dispatcher()
     state = make_state()
     result = d.dispatch("UNKNOWN", False, [], state)
@@ -38,18 +39,18 @@ def test_dispatch_unknown_command_pushes_command_header_error():
     assert 110 in state.event_queue
 
 
-def test_dispatch_unknown_command_sets_esr_error_bit():
+def test_dispatch_unknown_command_sets_esr_error_bit() -> None:
     d = Dispatcher()
     state = make_state()
     d.dispatch("UNKNOWN", False, [], state)
     assert state.esr == 0x20  # CME, bit 5
 
 
-def test_dispatch_registered_command_passes_query_args_and_state():
+def test_dispatch_registered_command_passes_query_args_and_state() -> None:
     d = Dispatcher()
-    received = {}
+    received: dict[str, object] = {}
 
-    def handler(query, args, state):
+    def handler(query: bool, args: list[Arg], state: InstrumentState) -> None:
         received["query"] = query
         received["args"] = args
         received["state"] = state
