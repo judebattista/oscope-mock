@@ -9,23 +9,40 @@ from scpi.parser import Arg
 from scpi.state import FileSystemState, InstrumentState
 
 
+def _normalize(components: list[str]) -> list[str]:
+    parts: list[str] = []
+    for component in components:
+        if component in ("", "."):
+            continue
+        if component == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(component)
+    return parts
+
+
+def _resolve(vpath: str, cwd: str) -> tuple[str, list[str]]:
+    """Resolve a Windows path against `cwd` into its drive letter and normalized components.
+
+    As on Windows, `..` never climbs above the drive root, which also keeps every path
+    inside the mock's fs-root.
+    """
+    path = vpath.replace("/", "\\")
+    cwd_drive, cwd_rest = cwd[0].upper(), cwd[2:]
+    if len(path) >= 2 and path[1] == ":":
+        drive, components = path[0].upper(), path[2:].split("\\")
+    elif path.startswith("\\"):
+        drive, components = cwd_drive, path.split("\\")
+    else:
+        drive, components = cwd_drive, cwd_rest.split("\\") + path.split("\\")
+    return drive, _normalize(components)
+
+
 def virtual_to_real(vpath: str, fs: FileSystemState) -> str:
     """Map a Windows virtual path to a real host path under fs.root."""
-    # Normalize to backslashes
-    normalized = vpath.replace("/", "\\")
-
-    # Resolve relative paths against CWD
-    if not (len(normalized) >= 2 and normalized[1] == ":"):
-        if normalized.startswith(".\\"):
-            normalized = normalized[2:]
-        normalized = fs.cwd + "\\" + normalized
-
-    # Now absolute: extract drive letter and remaining path
-    drive = normalized[0].upper()
-    rest = normalized[3:] if len(normalized) > 3 else ""  # skip "X:\"
-
-    parts = [p for p in rest.split("\\") if p]
-    return os.path.join(fs.root, drive, *parts) if parts else os.path.join(fs.root, drive)
+    drive, parts = _resolve(vpath, fs.cwd)
+    return os.path.join(fs.root, drive, *parts)
 
 
 def create_initial_structure(fs: FileSystemState) -> None:

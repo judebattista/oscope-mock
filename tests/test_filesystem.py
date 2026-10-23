@@ -79,6 +79,32 @@ def make_dispatcher(state):
 # --- create_initial_structure ---
 
 
+def test_virtual_to_real_dotdot_component_moves_up_one_dir(fs, tmp_path):
+    result = virtual_to_real(r"C:\TekScope\Waveforms\..\Images", fs)
+    assert result == os.path.join(str(tmp_path), "C", "TekScope", "Images")
+
+
+def test_virtual_to_real_dotdot_past_drive_root_stays_at_drive_root(fs, tmp_path):
+    result = virtual_to_real(r"C:\..\..\..\etc\hostname", fs)
+    assert result == os.path.join(str(tmp_path), "C", "etc", "hostname")
+
+
+def test_virtual_to_real_relative_dotdot_resolves_against_cwd(tmp_path):
+    fs = FileSystemState(cwd=r"C:\TekScope\Waveforms", root=str(tmp_path))
+    result = virtual_to_real(r"..\Images", fs)
+    assert result == os.path.join(str(tmp_path), "C", "TekScope", "Images")
+
+
+def test_virtual_to_real_dot_components_are_ignored(fs, tmp_path):
+    result = virtual_to_real(r"C:\TekScope\.\Waveforms", fs)
+    assert result == os.path.join(str(tmp_path), "C", "TekScope", "Waveforms")
+
+
+def test_virtual_to_real_rooted_path_without_drive_uses_cwd_drive(fs, tmp_path):
+    result = virtual_to_real(r"\Data\f.txt", fs)
+    assert result == os.path.join(str(tmp_path), "C", "Data", "f.txt")
+
+
 def test_create_initial_structure_creates_tekscope_tree(tmp_path):
     fs = make_fs_state(tmp_path)
     create_initial_structure(fs)

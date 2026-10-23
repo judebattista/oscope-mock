@@ -139,6 +139,9 @@ Rules:
 - Absolute paths: extract drive letter, map `{drive}:\...` → `{root}/{drive}/...`
 - Relative paths: join against CWD, then apply absolute mapping
 - Path separator: accept both `\` and `/`
+- `.` components are dropped; `..` removes the previous component but never climbs above
+  the drive root (as on Windows), so no path can escape `{root}`
+- A path starting with `\` and no drive letter resolves against the CWD's drive
 
 ### Initial Directory Structure (created at startup)
 
