@@ -26,6 +26,7 @@ class FileSystemState:
 @dataclass
 class InstrumentState:
     headers: bool = True
+    verbose: bool = True
     esr: int = 0
     stb: int = 0
     event_queue: list[EventCode] = field(default_factory=list)

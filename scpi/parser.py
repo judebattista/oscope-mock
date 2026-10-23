@@ -27,6 +27,7 @@ _MNEMONICS: list[tuple[str, str]] = [
     ("WRITEFILE", "WRITE"),
     ("HEADER", "HEAD"),
     ("HDR", "HDR"),
+    ("VERBOSE", "VERB"),
 ]
 
 # Build reverse lookup: both short and long forms → canonical (long) key

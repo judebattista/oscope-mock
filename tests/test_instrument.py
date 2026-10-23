@@ -233,3 +233,26 @@ def test_hdr_nonzero_nr1_enables_headers():
     d = make_dispatcher(state)
     d.dispatch("HDR", False, ["5"], state)
     assert state.headers is True
+
+
+def test_verbose_query_initially_returns_one():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    resp = d.dispatch("VERBOSE", True, [], state)
+    assert resp == "1"
+
+
+def test_verbose_off_then_query_returns_zero():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    d.dispatch("VERBOSE", False, ["OFF"], state)
+    resp = d.dispatch("VERBOSE", True, [], state)
+    assert resp == "0"
+    assert state.event_queue == []
+
+
+def test_verbose_invalid_value_pushes_invalid_character_data():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    d.dispatch("VERBOSE", False, ["LOUD"], state)
+    assert EventCode.INVALID_CHARACTER_DATA in state.event_queue

@@ -84,6 +84,19 @@ def _hdr(query: bool, args: list[Arg], s: InstrumentState) -> Response:
     return None
 
 
+def _verbose(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    if query:
+        return "1" if s.verbose else "0"
+    if not args:
+        return None
+    flag = _parse_bool(args[0])
+    if flag is None:
+        s.push_error(EventCode.INVALID_CHARACTER_DATA)
+    else:
+        s.verbose = flag
+    return None
+
+
 def register_instrument_commands(dispatcher: Dispatcher) -> None:
     dispatcher.register("*IDN?", _idn)
     dispatcher.register("*RST", _rst)
@@ -97,3 +110,5 @@ def register_instrument_commands(dispatcher: Dispatcher) -> None:
     dispatcher.register("HDR?", _hdr)
     dispatcher.register("HEADER", _hdr)
     dispatcher.register("HEADER?", _hdr)
+    dispatcher.register("VERBOSE", _verbose)
+    dispatcher.register("VERBOSE?", _verbose)

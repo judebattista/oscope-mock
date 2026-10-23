@@ -105,6 +105,8 @@ Minimal IEEE 488.2 required commands:
 | `HDR {ON\|OFF\|NR1}` | none | Toggle response header prefix (default ON) |
 | `HEADer {ON\|OFF\|NR1}` | none | Alias for HDR |
 | `HEADer?` / `HDR?` | `1` or `0` | Query header state |
+| `VERBose {ON\|OFF\|NR1}` | none | Stored and reported by `VERBose?`; does not shorten response headers |
+| `VERBose?` | `1` or `0` | Query verbose state |
 
 **Response headers:** When ON (default), query responses are prefixed with the canonical command path:
 - `FILESystem:CWD?` → `:FILESYSTEM:CWD "C:\TekScope"`

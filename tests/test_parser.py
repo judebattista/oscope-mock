@@ -33,6 +33,8 @@ from scpi.parser import ParsedCommand, parse_line, resolve_node
         ("DIR", "DIR"),
         ("EVMSG", "EVMSG"),
         ("EVM", "EVMSG"),
+        ("VERBOSE", "VERBOSE"),
+        ("VERB", "VERBOSE"),
     ],
 )
 def test_resolve_node_long_or_short_form_returns_canonical_key(mnemonic, canonical):
