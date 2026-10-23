@@ -184,9 +184,13 @@ matching ESR bit: command errors (1xx) set CME (bit 5), execution errors (2xx) s
 | Missing argument | 109 Missing parameter |
 | Block data where a string is expected | 104 Data type error |
 | Invalid ON/OFF/NR1 value (HDR) | 141 Invalid character data |
+| Unterminated quoted string | 151 Invalid string data |
+| Malformed block header or block shorter than declared | 161 Invalid block data |
 | File or directory not found, or a path component is a file | 256 File name not found |
 | Path already exists, or is a directory where a file is expected | 257 File name error |
 | Any other host filesystem failure (not empty, permission denied, ...) | 250 Mass storage error |
+
+A parse error discards the rest of its message; the connection stays open.
 
 The manual's 200-series table is missing from the source PDF; the 2xx codes follow SCPI-99,
 which the manual's 1xx codes match exactly.

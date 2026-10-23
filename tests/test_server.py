@@ -191,3 +191,15 @@ def test_server_hash_inside_quoted_path_does_not_swallow_next_command(server_add
     with socket.create_connection(server_addr, timeout=3) as sock:
         sock.sendall(b'HEADer 0;FILESYSTEM:MKDIR "C:\\TekScope\\run#19"\n*OPC?\n')
         assert read_until_idle(sock) == b"1\n"
+
+
+def test_server_unterminated_quote_reports_error_and_keeps_connection(server_addr):
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(b'*CLS\nFILESystem:CWD "C:\\oops\nHEADer 0;*ESR?;EVMsg?\n')
+        assert read_until_idle(sock) == b'32\n151,"Invalid string data"\n'
+
+
+def test_server_parse_error_discards_rest_of_message(server_addr):
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(b'HEADer 0\nFILESYSTEM:WRITEFILE "f",#x;*OPC?\n*IDN?\n')
+        assert read_until_idle(sock) == b"TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B\n"

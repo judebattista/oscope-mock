@@ -17,6 +17,8 @@ class EventCode(IntEnum):
     MISSING_PARAMETER = 109
     COMMAND_HEADER_ERROR = 110
     INVALID_CHARACTER_DATA = 141
+    INVALID_STRING_DATA = 151
+    INVALID_BLOCK_DATA = 161
     MASS_STORAGE_ERROR = 250
     FILE_NAME_NOT_FOUND = 256
     FILE_NAME_ERROR = 257
@@ -29,6 +31,8 @@ _MESSAGES: dict[EventCode, str] = {
     EventCode.MISSING_PARAMETER: "Missing parameter",
     EventCode.COMMAND_HEADER_ERROR: "Command header error",
     EventCode.INVALID_CHARACTER_DATA: "Invalid character data",
+    EventCode.INVALID_STRING_DATA: "Invalid string data",
+    EventCode.INVALID_BLOCK_DATA: "Invalid block data",
     EventCode.MASS_STORAGE_ERROR: "Mass storage error",
     EventCode.FILE_NAME_NOT_FOUND: "File name not found",
     EventCode.FILE_NAME_ERROR: "File name error",

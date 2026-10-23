@@ -6,7 +6,7 @@ import tempfile
 from scpi.dispatcher import Dispatcher
 from scpi.filesystem import create_initial_structure, register_filesystem_commands
 from scpi.instrument import register_instrument_commands
-from scpi.parser import parse_unit, split_message, split_units
+from scpi.parser import ParseError, parse_unit, split_message, split_units
 from scpi.state import FileSystemState, InstrumentState
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -35,7 +35,13 @@ async def _execute(
 ) -> None:
     log.info("< %r", message[:200])
     for unit in split_units(message):
-        cmd = parse_unit(unit)
+        try:
+            cmd = parse_unit(unit)
+        except ParseError as exc:
+            # Like the instrument's parser, discard the rest of the message after an error.
+            log.info("! %s", exc)
+            state.push_error(exc.code)
+            return
         response = dispatcher.dispatch(cmd.key, cmd.query, cmd.args, state)
         if response is not None:
             writer.write(format_response(cmd.key, response, state.headers))

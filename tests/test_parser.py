@@ -1,6 +1,14 @@
 import pytest
 
-from scpi.parser import ParsedCommand, parse_unit, resolve_node, split_message, split_units
+from scpi.events import EventCode
+from scpi.parser import (
+    ParsedCommand,
+    ParseError,
+    parse_unit,
+    resolve_node,
+    split_message,
+    split_units,
+)
 
 
 def parse(message: str) -> list[ParsedCommand]:
@@ -202,3 +210,32 @@ def test_split_message_hash_inside_quotes_is_not_a_block():
 
 def test_split_message_indefinite_block_ends_at_newline():
     assert split_message(b'WRITE "f",#0a;"b\nNEXT') == (b'WRITE "f",#0a;"b', b"NEXT")
+
+
+def test_parse_unit_unterminated_quote_raises_invalid_string_data():
+    with pytest.raises(ParseError) as excinfo:
+        parse_unit(b'FILESYSTEM:CWD "C:\\oops')
+    assert excinfo.value.code == EventCode.INVALID_STRING_DATA
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        b'FILESYSTEM:WRITEFILE "f",#x',
+        b'FILESYSTEM:WRITEFILE "f",#2ab',
+        b'FILESYSTEM:WRITEFILE "f",#15abc',
+        b'FILESYSTEM:WRITEFILE "f",#',
+        b'FILESYSTEM:WRITEFILE "f",#\xb2ab',
+    ],
+    ids=[
+        "non-digit-header",
+        "non-numeric-length",
+        "shorter-than-declared",
+        "bare-hash",
+        "latin-1-superscript-digit",
+    ],
+)
+def test_parse_unit_malformed_block_raises_invalid_block_data(unit):
+    with pytest.raises(ParseError) as excinfo:
+        parse_unit(unit)
+    assert excinfo.value.code == EventCode.INVALID_BLOCK_DATA

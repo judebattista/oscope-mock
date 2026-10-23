@@ -3,7 +3,17 @@ from __future__ import annotations
 from itertools import pairwise
 from typing import NamedTuple
 
+from scpi.events import EventCode
+
 Arg = str | bytes
+
+
+class ParseError(Exception):
+    """A message unit the instrument would reject as a command error."""
+
+    def __init__(self, code: EventCode, detail: str) -> None:
+        super().__init__(f"{code.name}: {detail}")
+        self.code = code
 
 
 class ParsedCommand(NamedTuple):
@@ -45,20 +55,39 @@ def resolve_node(node: str) -> str:
 
 
 def _parse_quoted(args_str: str, start: int) -> tuple[str, int]:
-    end = args_str.index('"', start + 1)
+    end = args_str.find('"', start + 1)
+    if end == -1:
+        raise ParseError(EventCode.INVALID_STRING_DATA, f"unterminated string {args_str[start:]!r}")
     return args_str[start + 1 : end], end + 1
+
+
+def _is_ascii_digits(text: str) -> bool:
+    # str.isdigit alone accepts latin-1 superscripts such as '²', which int() rejects.
+    return text.isascii() and text.isdigit()
 
 
 def _parse_block(args_str: str, start: int) -> tuple[bytes, int]:
     """Parse IEEE 488.2 block data beginning at the '#' at `start`."""
-    n_digits = int(args_str[start + 1])
+    digit_count = args_str[start + 1 : start + 2]
+    if not _is_ascii_digits(digit_count):
+        raise ParseError(EventCode.INVALID_BLOCK_DATA, "'#' must be followed by a digit count")
+    n_digits = int(digit_count)
     length_start = start + 2
     if n_digits == 0:
         # Indefinite: rest of string is data
         return args_str[length_start:].encode("latin-1"), len(args_str)
-    length = int(args_str[length_start : length_start + n_digits])
+    length_text = args_str[length_start : length_start + n_digits]
+    if len(length_text) < n_digits or not _is_ascii_digits(length_text):
+        raise ParseError(
+            EventCode.INVALID_BLOCK_DATA, f"block length {length_text!r} is not {n_digits} digits"
+        )
     data_start = length_start + n_digits
-    data_end = data_start + length
+    data_end = data_start + int(length_text)
+    if data_end > len(args_str):
+        raise ParseError(
+            EventCode.INVALID_BLOCK_DATA,
+            f"block declares {length_text} bytes but only {len(args_str) - data_start} follow",
+        )
     return args_str[data_start:data_end].encode("latin-1"), data_end
 
 
