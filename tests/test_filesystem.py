@@ -526,3 +526,11 @@ def test_readfile_short_form_port_returns_bytes(tmp_path):
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm", "gpi"], state)
     assert resp == b"abc"
+
+
+def test_mkdir_path_with_nul_byte_pushes_file_name_error(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, ["bad\x00name"], state)
+    assert EventCode.FILE_NAME_ERROR in state.event_queue

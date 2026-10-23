@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -24,12 +25,18 @@ def _normalize(components: list[str]) -> list[str]:
     return parts
 
 
+class _InvalidPathError(OSError):
+    """A path the host OS cannot represent, reported like any other bad file name."""
+
+
 def _resolve(vpath: str, cwd: str) -> tuple[str, list[str]]:
     """Resolve a Windows path against `cwd` into its drive letter and normalized components.
 
     As on Windows, `..` never climbs above the drive root, which also keeps every path
     inside the mock's fs-root.
     """
+    if "\x00" in vpath:
+        raise _InvalidPathError(f"path contains a NUL byte: {vpath!r}")
     path = vpath.replace("/", "\\")
     cwd_drive, cwd_rest = cwd[0].upper(), cwd[2:]
     if len(path) >= 2 and path[1] == ":":
@@ -81,6 +88,7 @@ _OS_ERROR_EVENTS: list[tuple[type[OSError], EventCode]] = [
     (NotADirectoryError, EventCode.FILE_NAME_NOT_FOUND),
     (IsADirectoryError, EventCode.FILE_NAME_ERROR),
     (FileExistsError, EventCode.FILE_NAME_ERROR),
+    (_InvalidPathError, EventCode.FILE_NAME_ERROR),
 ]
 
 
@@ -112,10 +120,11 @@ def _cwd_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respon
     paths = _str_args(args, 1, state)
     if paths is None:
         return None
-    if not os.path.isdir(virtual_to_real(paths[0], state.filesystem)):
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
-        return None
-    state.filesystem.cwd = _absolute_virtual(paths[0], state.filesystem.cwd)
+    with _os_errors_as_events(state):
+        real = virtual_to_real(paths[0], state.filesystem)
+        if not stat.S_ISDIR(os.stat(real).st_mode):
+            raise NotADirectoryError(real)
+        state.filesystem.cwd = _absolute_virtual(paths[0], state.filesystem.cwd)
     return None
 
 
@@ -150,10 +159,11 @@ def _rename_handler(query: bool, args: list[Arg], state: InstrumentState) -> Res
     paths = _str_args(args, 2, state)
     if paths is None:
         return None
-    src = virtual_to_real(paths[0], state.filesystem)
-    dst = virtual_to_real(paths[1], state.filesystem)
     with _os_errors_as_events(state):
-        os.rename(src, dst)
+        os.rename(
+            virtual_to_real(paths[0], state.filesystem),
+            virtual_to_real(paths[1], state.filesystem),
+        )
     return None
 
 
@@ -161,10 +171,11 @@ def _copy_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respo
     paths = _str_args(args, 2, state)
     if paths is None:
         return None
-    src = virtual_to_real(paths[0], state.filesystem)
-    dst = virtual_to_real(paths[1], state.filesystem)
     with _os_errors_as_events(state):
-        shutil.copy2(src, dst)
+        shutil.copy2(
+            virtual_to_real(paths[0], state.filesystem),
+            virtual_to_real(paths[1], state.filesystem),
+        )
     return None
 
 
