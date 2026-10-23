@@ -39,6 +39,11 @@ def _resolve(vpath: str, cwd: str) -> tuple[str, list[str]]:
     return drive, _normalize(components)
 
 
+def _absolute_virtual(vpath: str, cwd: str) -> str:
+    drive, parts = _resolve(vpath, cwd)
+    return f"{drive}:\\" + "\\".join(parts)
+
+
 def virtual_to_real(vpath: str, fs: FileSystemState) -> str:
     """Map a Windows virtual path to a real host path under fs.root."""
     drive, parts = _resolve(vpath, fs.cwd)
@@ -78,8 +83,12 @@ def _cwd_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respon
     if query:
         return f'"{state.filesystem.cwd}"'
     paths = _str_args(args, 1, state)
-    if paths is not None:
-        state.filesystem.cwd = paths[0]
+    if paths is None:
+        return None
+    if not os.path.isdir(virtual_to_real(paths[0], state.filesystem)):
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
+        return None
+    state.filesystem.cwd = _absolute_virtual(paths[0], state.filesystem.cwd)
     return None
 
 

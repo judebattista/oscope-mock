@@ -129,6 +129,7 @@ def test_cwd_query_initially_returns_quoted_default(tmp_path):
 
 def test_cwd_set_absolute_path_updates_cwd(tmp_path):
     state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [r"C:\TekScope\Waveforms"], state)
     assert state.filesystem.cwd == r"C:\TekScope\Waveforms"
@@ -136,10 +137,54 @@ def test_cwd_set_absolute_path_updates_cwd(tmp_path):
 
 def test_cwd_query_after_set_returns_quoted_new_cwd(tmp_path):
     state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [r"C:\TekScope\Waveforms"], state)
     resp = d.dispatch("FILESYSTEM:CWD", True, [], state)
     assert resp == r'"C:\TekScope\Waveforms"'
+
+
+def test_cwd_set_relative_path_stores_absolute_path(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, ["Waveforms"], state)
+    assert state.filesystem.cwd == r"C:\TekScope\Waveforms"
+
+
+def test_cwd_set_dotdot_moves_to_parent(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, [".."], state)
+    assert state.filesystem.cwd == "C:\\"
+
+
+def test_cwd_set_forward_slashes_stores_backslash_path(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, ["C:/TekScope/Images"], state)
+    assert state.filesystem.cwd == r"C:\TekScope\Images"
+
+
+def test_cwd_set_missing_dir_pushes_file_name_not_found_and_keeps_cwd(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, ["NoSuchDir"], state)
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
+    assert state.filesystem.cwd == r"C:\TekScope"
+
+
+def test_cwd_set_file_path_pushes_file_name_not_found_and_keeps_cwd(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    open(virtual_to_real(r"C:\TekScope\setup.set", state.filesystem), "w").close()
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, ["setup.set"], state)
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
+    assert state.filesystem.cwd == r"C:\TekScope"
 
 
 # --- DIR? ---

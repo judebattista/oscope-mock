@@ -157,7 +157,7 @@ C:\TekScope\Settings\
 | Command | Args | Behavior | Response |
 |---|---|---|---|
 | `FILESystem:COPy` | `"<src>","<dst>"` | `shutil.copy2(src, dst)` | none |
-| `FILESystem:CWD` | `"<path>"` | update `state.cwd` | none |
+| `FILESystem:CWD` | `"<path>"` | resolve against CWD and store the absolute path; 256 if it is not an existing directory | none |
 | `FILESystem:CWD?` | — | return CWD string | `:FILESYSTEM:CWD "C:\TekScope"` |
 | `FILESystem:DELEte` | `"<path>"` | `os.remove(path)` | none |
 | `FILESystem:DIR?` | — | list entries in CWD | `:FILESYSTEM:DIR ".","..","wfm1.wfm"` |
