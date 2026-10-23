@@ -3,6 +3,7 @@ import os
 import pytest
 
 from scpi.dispatcher import Dispatcher
+from scpi.events import EventCode
 from scpi.filesystem import (
     create_initial_structure,
     register_filesystem_commands,
@@ -164,7 +165,7 @@ def test_mkdir_existing_path_pushes_error(tmp_path):
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:MKDIR", False, [r"C:\TekScope\Waveforms"], state)
-    assert 2004 in state.event_queue
+    assert EventCode.FILE_NAME_ERROR in state.event_queue
 
 
 # --- RMDir ---
@@ -186,7 +187,7 @@ def test_rmdir_non_empty_dir_pushes_error(tmp_path):
     real = virtual_to_real(r"C:\TekScope\Waveforms", state.filesystem)
     open(os.path.join(real, "x.wfm"), "w").close()
     d.dispatch("FILESYSTEM:RMDIR", False, [r"C:\TekScope\Waveforms"], state)
-    assert 2003 in state.event_queue
+    assert EventCode.MASS_STORAGE_ERROR in state.event_queue
 
 
 # --- DELEte ---
@@ -208,7 +209,7 @@ def test_delete_missing_file_pushes_error(tmp_path):
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:DELETE", False, [r"C:\TekScope\nosuchfile.wfm"], state)
-    assert 2002 in state.event_queue
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
 
 # --- RENAme ---
@@ -232,7 +233,7 @@ def test_rename_missing_file_pushes_error(tmp_path):
     d.dispatch(
         "FILESYSTEM:RENAME", False, [r"C:\TekScope\ghost.wfm", r"C:\TekScope\new.wfm"], state
     )
-    assert 2002 in state.event_queue
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
 
 # --- COPy ---
@@ -257,7 +258,7 @@ def test_copy_missing_file_pushes_error(tmp_path):
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:COPY", False, [r"C:\TekScope\ghost.wfm", r"C:\TekScope\dst.wfm"], state)
-    assert 2002 in state.event_queue
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
 
 # --- READFile / PRInt ---
@@ -293,7 +294,7 @@ def test_readfile_missing_file_pushes_error_and_returns_none(tmp_path):
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\nope.wfm"], state)
     assert resp is None
-    assert 2002 in state.event_queue
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
 
 # --- WRITEFile ---
@@ -327,27 +328,35 @@ def test_writefile_missing_parent_dir_pushes_error(tmp_path):
     d.dispatch(
         "FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\NonExistentDir\file.wfm", b"data"], state
     )
-    assert 2002 in state.event_queue
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
 
 
-def test_mkdir_block_data_path_pushes_command_error(tmp_path):
+def test_mkdir_block_data_path_pushes_data_type_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:MKDIR", False, [b"C:\\TekScope\\NewDir"], state)
-    assert 110 in state.event_queue
+    assert EventCode.DATA_TYPE_ERROR in state.event_queue
 
 
-def test_cwd_set_block_data_path_pushes_command_error_and_keeps_cwd(tmp_path):
+def test_cwd_set_block_data_path_pushes_data_type_error_and_keeps_cwd(tmp_path):
     state = make_state(tmp_path)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [b"C:\\TekScope\\Waveforms"], state)
-    assert 110 in state.event_queue
+    assert EventCode.DATA_TYPE_ERROR in state.event_queue
     assert state.filesystem.cwd == r"C:\TekScope"
 
 
-def test_cwd_set_without_path_pushes_command_error(tmp_path):
+def test_cwd_set_without_path_pushes_missing_parameter(tmp_path):
     state = make_state(tmp_path)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [], state)
-    assert 110 in state.event_queue
+    assert EventCode.MISSING_PARAMETER in state.event_queue
+
+
+def test_writefile_without_data_pushes_missing_parameter(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\out.wfm"], state)
+    assert EventCode.MISSING_PARAMETER in state.event_queue

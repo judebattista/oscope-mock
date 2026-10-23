@@ -165,15 +165,21 @@ C:\TekScope\Settings\
 
 ### Error Handling
 
-Errors push an event code onto the instrument event queue and set ESR bit 3 (Device-Specific Error):
+Errors push an event code (`scpi/events.py`) onto the instrument event queue and set the
+matching ESR bit: command errors (1xx) set CME (bit 5), execution errors (2xx) set EXE (bit 4).
 
 | Condition | Event Code |
 |---|---|
-| File not found | 2002 |
-| Directory not empty (RMDir) | 2003 |
-| Path already exists (MKDir) | 2004 |
-| Missing / malformed arguments | 110 |
-| Unknown command header | 110 |
+| Unknown command header | 110 Command header error |
+| Missing argument | 109 Missing parameter |
+| Block data where a string is expected | 104 Data type error |
+| Invalid ON/OFF/NR1 value (HDR) | 141 Invalid character data |
+| File or directory not found | 256 File name not found |
+| Path already exists (MKDir) | 257 File name error |
+| Directory not empty (RMDir) | 250 Mass storage error |
+
+The manual's 200-series table is missing from the source PDF; the 2xx codes follow SCPI-99,
+which the manual's 1xx codes match exactly.
 
 ---
 

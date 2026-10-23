@@ -4,6 +4,7 @@ import os
 import shutil
 
 from scpi.dispatcher import Dispatcher, Response
+from scpi.events import EventCode
 from scpi.parser import Arg
 from scpi.state import FileSystemState, InstrumentState
 
@@ -39,10 +40,13 @@ def create_initial_structure(fs: FileSystemState) -> None:
 
 
 def _str_args(args: list[Arg], count: int, state: InstrumentState) -> list[str] | None:
-    """Return the first `count` args, or push a command error if any is missing or block data."""
+    """Return the first `count` args as strings; push an error if any is missing or block data."""
+    if len(args) < count:
+        state.push_error(EventCode.MISSING_PARAMETER)
+        return None
     strings = [arg for arg in args[:count] if isinstance(arg, str)]
     if len(strings) < count:
-        state.push_error(110)
+        state.push_error(EventCode.DATA_TYPE_ERROR)
         return None
     return strings
 
@@ -68,7 +72,7 @@ def _mkdir_handler(query: bool, args: list[Arg], state: InstrumentState) -> Resp
         return None
     real = virtual_to_real(paths[0], state.filesystem)
     if os.path.exists(real):
-        state.push_error(2004)
+        state.push_error(EventCode.FILE_NAME_ERROR)
         return None
     os.makedirs(real, exist_ok=False)
     return None
@@ -82,9 +86,9 @@ def _rmdir_handler(query: bool, args: list[Arg], state: InstrumentState) -> Resp
     try:
         os.rmdir(real)
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     except OSError:
-        state.push_error(2003)
+        state.push_error(EventCode.MASS_STORAGE_ERROR)
     return None
 
 
@@ -96,7 +100,7 @@ def _delete_handler(query: bool, args: list[Arg], state: InstrumentState) -> Res
     try:
         os.remove(real)
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 
@@ -109,7 +113,7 @@ def _rename_handler(query: bool, args: list[Arg], state: InstrumentState) -> Res
     try:
         os.rename(src, dst)
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 
@@ -122,7 +126,7 @@ def _copy_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respo
     try:
         shutil.copy2(src, dst)
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 
@@ -135,7 +139,7 @@ def _read_file_handler(query: bool, args: list[Arg], state: InstrumentState) -> 
         with open(real, "rb") as f:
             return f.read()
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
         return None
 
 
@@ -144,7 +148,7 @@ def _write_file_handler(query: bool, args: list[Arg], state: InstrumentState) ->
     if paths is None:
         return None
     if len(args) < 2:
-        state.push_error(110)
+        state.push_error(EventCode.MISSING_PARAMETER)
         return None
     real = virtual_to_real(paths[0], state.filesystem)
     data = args[1]
@@ -154,7 +158,7 @@ def _write_file_handler(query: bool, args: list[Arg], state: InstrumentState) ->
         with open(real, "wb") as f:
             f.write(data)
     except FileNotFoundError:
-        state.push_error(2002)
+        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 

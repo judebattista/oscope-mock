@@ -42,7 +42,7 @@ def test_dispatch_unknown_command_sets_esr_error_bit():
     d = Dispatcher()
     state = make_state()
     d.dispatch("UNKNOWN", False, [], state)
-    assert state.esr & 0x08  # bit 3
+    assert state.esr == 0x20  # CME, bit 5
 
 
 def test_dispatch_registered_command_passes_query_args_and_state():

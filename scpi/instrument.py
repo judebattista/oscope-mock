@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from scpi.dispatcher import Dispatcher, Response
+from scpi.events import EventCode
 from scpi.parser import Arg
 from scpi.state import InstrumentState
 
@@ -61,7 +62,7 @@ def _hdr(query: bool, args: list[Arg], s: InstrumentState) -> Response:
         return None
     flag = _parse_bool(args[0])
     if flag is None:
-        s.push_error(110)
+        s.push_error(EventCode.INVALID_CHARACTER_DATA)
     else:
         s.headers = flag
     return None

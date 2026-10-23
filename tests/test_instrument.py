@@ -1,4 +1,5 @@
 from scpi.dispatcher import Dispatcher
+from scpi.events import EventCode
 from scpi.instrument import register_instrument_commands
 from scpi.state import InstrumentState
 
@@ -157,7 +158,7 @@ def test_hdr_invalid_value_pushes_error_and_keeps_headers():
     state = make_full_state()
     d = make_dispatcher(state)
     d.dispatch("HDR", False, ["INVALID"], state)
-    assert 110 in state.event_queue
+    assert EventCode.INVALID_CHARACTER_DATA in state.event_queue
     assert state.headers is True  # unchanged
 
 

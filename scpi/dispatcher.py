@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from scpi.events import EventCode
 from scpi.parser import Arg
 from scpi.state import InstrumentState
 
@@ -22,6 +23,6 @@ class Dispatcher:
         lookup = key + "?" if query else key
         handler = self._handlers.get(lookup)
         if handler is None:
-            state.push_error(110)
+            state.push_error(EventCode.COMMAND_HEADER_ERROR)
             return None
         return handler(query, args, state)
