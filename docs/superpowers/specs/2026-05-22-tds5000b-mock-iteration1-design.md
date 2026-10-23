@@ -159,9 +159,9 @@ C:\TekScope\Settings\
 | `FILESystem:COPy` | `"<src>","<dst>"` | `shutil.copy2(src, dst)` | none |
 | `FILESystem:CWD` | `"<path>"` | resolve against CWD and store the absolute path; 256 if it is not an existing directory | none |
 | `FILESystem:CWD?` | — | return CWD string | `:FILESYSTEM:CWD "C:\TekScope"` |
-| `FILESystem:DELEte` | `"<path>"` | `os.remove(path)` | none |
+| `FILESystem:DELEte` | `"<path>"` | `os.remove(path)`; directories are refused (257) | none |
 | `FILESystem:DIR?` | — | list entries in CWD | `:FILESYSTEM:DIR ".","..","wfm1.wfm"` |
-| `FILESystem:MKDir` | `"<path>"` | `os.makedirs(path, exist_ok=True)` | none |
+| `FILESystem:MKDir` | `"<path>"` | `os.mkdir(path)` — single level; parent must exist | none |
 | `FILESystem:PRInt` | `"<path>",GPIb` | read file bytes, send raw on TCP channel; `GPIb` arg accepted but ignored (TCP-only mock) | file contents |
 | `FILESystem:READFile` | `"<path>",GPIb` | identical to PRInt | file contents |
 | `FILESystem:RENAme` | `"<old>","<new>"` | `os.rename(old, new)` | none |
@@ -180,9 +180,9 @@ matching ESR bit: command errors (1xx) set CME (bit 5), execution errors (2xx) s
 | Missing argument | 109 Missing parameter |
 | Block data where a string is expected | 104 Data type error |
 | Invalid ON/OFF/NR1 value (HDR) | 141 Invalid character data |
-| File or directory not found | 256 File name not found |
-| Path already exists (MKDir) | 257 File name error |
-| Directory not empty (RMDir) | 250 Mass storage error |
+| File or directory not found, or a path component is a file | 256 File name not found |
+| Path already exists, or is a directory where a file is expected | 257 File name error |
+| Any other host filesystem failure (not empty, permission denied, ...) | 250 Mass storage error |
 
 The manual's 200-series table is missing from the source PDF; the 2xx codes follow SCPI-99,
 which the manual's 1xx codes match exactly.

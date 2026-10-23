@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from scpi.dispatcher import Dispatcher, Response
 from scpi.events import EventCode
@@ -73,6 +75,31 @@ def _str_args(args: list[Arg], count: int, state: InstrumentState) -> list[str] 
     return strings
 
 
+# Most specific first: each entry must precede any of its base classes.
+_OS_ERROR_EVENTS: list[tuple[type[OSError], EventCode]] = [
+    (FileNotFoundError, EventCode.FILE_NAME_NOT_FOUND),
+    (NotADirectoryError, EventCode.FILE_NAME_NOT_FOUND),
+    (IsADirectoryError, EventCode.FILE_NAME_ERROR),
+    (FileExistsError, EventCode.FILE_NAME_ERROR),
+]
+
+
+def _event_for(exc: OSError) -> EventCode:
+    for exc_type, code in _OS_ERROR_EVENTS:
+        if isinstance(exc, exc_type):
+            return code
+    return EventCode.MASS_STORAGE_ERROR
+
+
+@contextmanager
+def _os_errors_as_events(state: InstrumentState) -> Iterator[None]:
+    """Report host filesystem failures through the event queue, as the instrument does."""
+    try:
+        yield
+    except OSError as exc:
+        state.push_error(_event_for(exc))
+
+
 def _dir_query(query: bool, args: list[Arg], state: InstrumentState) -> Response:
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
     entries = [".", ".."] + sorted(os.listdir(real))
@@ -96,11 +123,8 @@ def _mkdir_handler(query: bool, args: list[Arg], state: InstrumentState) -> Resp
     paths = _str_args(args, 1, state)
     if paths is None:
         return None
-    real = virtual_to_real(paths[0], state.filesystem)
-    if os.path.exists(real):
-        state.push_error(EventCode.FILE_NAME_ERROR)
-        return None
-    os.makedirs(real, exist_ok=False)
+    with _os_errors_as_events(state):
+        os.mkdir(virtual_to_real(paths[0], state.filesystem))
     return None
 
 
@@ -108,13 +132,8 @@ def _rmdir_handler(query: bool, args: list[Arg], state: InstrumentState) -> Resp
     paths = _str_args(args, 1, state)
     if paths is None:
         return None
-    real = virtual_to_real(paths[0], state.filesystem)
-    try:
-        os.rmdir(real)
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
-    except OSError:
-        state.push_error(EventCode.MASS_STORAGE_ERROR)
+    with _os_errors_as_events(state):
+        os.rmdir(virtual_to_real(paths[0], state.filesystem))
     return None
 
 
@@ -122,11 +141,8 @@ def _delete_handler(query: bool, args: list[Arg], state: InstrumentState) -> Res
     paths = _str_args(args, 1, state)
     if paths is None:
         return None
-    real = virtual_to_real(paths[0], state.filesystem)
-    try:
-        os.remove(real)
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
+    with _os_errors_as_events(state):
+        os.remove(virtual_to_real(paths[0], state.filesystem))
     return None
 
 
@@ -136,10 +152,8 @@ def _rename_handler(query: bool, args: list[Arg], state: InstrumentState) -> Res
         return None
     src = virtual_to_real(paths[0], state.filesystem)
     dst = virtual_to_real(paths[1], state.filesystem)
-    try:
+    with _os_errors_as_events(state):
         os.rename(src, dst)
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 
@@ -149,10 +163,8 @@ def _copy_handler(query: bool, args: list[Arg], state: InstrumentState) -> Respo
         return None
     src = virtual_to_real(paths[0], state.filesystem)
     dst = virtual_to_real(paths[1], state.filesystem)
-    try:
+    with _os_errors_as_events(state):
         shutil.copy2(src, dst)
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
     return None
 
 
@@ -160,13 +172,10 @@ def _read_file_handler(query: bool, args: list[Arg], state: InstrumentState) -> 
     paths = _str_args(args, 1, state)
     if paths is None:
         return None
-    real = virtual_to_real(paths[0], state.filesystem)
-    try:
-        with open(real, "rb") as f:
-            return f.read()
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
-        return None
+    data: bytes | None = None
+    with _os_errors_as_events(state), open(virtual_to_real(paths[0], state.filesystem), "rb") as f:
+        data = f.read()
+    return data
 
 
 def _write_file_handler(query: bool, args: list[Arg], state: InstrumentState) -> Response:
@@ -176,15 +185,11 @@ def _write_file_handler(query: bool, args: list[Arg], state: InstrumentState) ->
     if len(args) < 2:
         state.push_error(EventCode.MISSING_PARAMETER)
         return None
-    real = virtual_to_real(paths[0], state.filesystem)
     data = args[1]
     if isinstance(data, str):
         data = data.encode("latin-1")
-    try:
-        with open(real, "wb") as f:
-            f.write(data)
-    except FileNotFoundError:
-        state.push_error(EventCode.FILE_NAME_NOT_FOUND)
+    with _os_errors_as_events(state), open(virtual_to_real(paths[0], state.filesystem), "wb") as f:
+        f.write(data)
     return None
 
 

@@ -431,3 +431,68 @@ def test_writefile_without_data_pushes_missing_parameter(tmp_path):
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\out.wfm"], state)
     assert EventCode.MISSING_PARAMETER in state.event_queue
+
+
+def test_mkdir_missing_parent_pushes_file_name_not_found(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, [r"C:\TekScope\Missing\Child"], state)
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
+    assert not os.path.exists(virtual_to_real(r"C:\TekScope\Missing", state.filesystem))
+
+
+def test_delete_directory_pushes_file_name_error_and_keeps_dir(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:DELETE", False, [r"C:\TekScope\Images"], state)
+    assert EventCode.FILE_NAME_ERROR in state.event_queue
+    assert os.path.isdir(virtual_to_real(r"C:\TekScope\Images", state.filesystem))
+
+
+def test_readfile_directory_pushes_file_name_error_and_returns_none(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\Images", "GPIB"], state)
+    assert resp is None
+    assert EventCode.FILE_NAME_ERROR in state.event_queue
+
+
+def test_copy_directory_source_pushes_file_name_error(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:COPY", False, [r"C:\TekScope\Images", r"C:\TekScope\Copy"], state)
+    assert EventCode.FILE_NAME_ERROR in state.event_queue
+
+
+def test_writefile_directory_path_pushes_file_name_error(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\Images", b"data"], state)
+    assert EventCode.FILE_NAME_ERROR in state.event_queue
+
+
+def test_writefile_read_only_dir_pushes_mass_storage_error(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    read_only = virtual_to_real(r"C:\TekScope\Settings", state.filesystem)
+    os.chmod(read_only, 0o500)
+    try:
+        d = make_dispatcher(state)
+        d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\Settings\x.set", b"x"], state)
+    finally:
+        os.chmod(read_only, 0o700)
+    assert EventCode.MASS_STORAGE_ERROR in state.event_queue
+
+
+def test_readfile_path_through_a_file_pushes_file_name_not_found(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    open(virtual_to_real(r"C:\TekScope\setup.set", state.filesystem), "w").close()
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\setup.set\child", "GPIB"], state)
+    assert EventCode.FILE_NAME_NOT_FOUND in state.event_queue
