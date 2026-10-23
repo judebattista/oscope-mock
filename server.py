@@ -59,7 +59,7 @@ async def handle_client(
         writer.close()
 
 
-async def main(port: int, fs_root: str) -> None:
+async def main(host: str, port: int, fs_root: str) -> None:
     fs = FileSystemState(root=fs_root)
     create_initial_structure(fs)
     state = InstrumentState(filesystem=fs)
@@ -67,22 +67,31 @@ async def main(port: int, fs_root: str) -> None:
 
     server = await asyncio.start_server(
         lambda r, w: handle_client(r, w, dispatcher, state),
-        host="0.0.0.0",
+        host=host,
         port=port,
     )
-    log.info("Listening on port %d, fs-root: %s", port, fs_root)
+    log.info("Listening on %s:%d, fs-root: %s", host, port, fs_root)
     async with server:
         await server.serve_forever()
 
 
-if __name__ == "__main__":
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TDS5000B Mock Oscilloscope")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Address to listen on; use 0.0.0.0 to accept LAN clients (default: %(default)s)",
+    )
     parser.add_argument("--port", type=int, default=4000)
     parser.add_argument("--fs-root", default=None)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    args = parse_args()
 
     fs_root = args.fs_root or tempfile.mkdtemp(prefix="tds5000b_mock_")
     if not args.fs_root:
         print(f"fs-root: {fs_root}")
 
-    asyncio.run(main(args.port, fs_root))
+    asyncio.run(main(args.host, args.port, fs_root))

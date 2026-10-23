@@ -7,7 +7,7 @@ import pytest
 
 from scpi.filesystem import create_initial_structure
 from scpi.state import FileSystemState, InstrumentState
-from server import build_dispatcher, handle_client
+from server import build_dispatcher, handle_client, parse_args
 
 
 def _free_port():
@@ -134,3 +134,11 @@ def test_server_unknown_command_sends_no_response(server_addr):
         except TimeoutError:
             data = b""
     assert data == b""  # no response for unknown command
+
+
+def test_parse_args_without_host_binds_loopback_only():
+    assert parse_args([]).host == "127.0.0.1"
+
+
+def test_parse_args_host_option_sets_bind_address():
+    assert parse_args(["--host", "0.0.0.0"]).host == "0.0.0.0"

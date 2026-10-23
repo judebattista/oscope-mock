@@ -31,6 +31,7 @@ oscope-mock/
 ## TCP Transport
 
 - Raw TCP, default port **4000** (TekVISA virtual GPIB default), configurable via `--port`
+- Listens on `127.0.0.1` by default; `--host 0.0.0.0` accepts LAN clients
 - One asyncio coroutine per client connection
 - Commands delimited by `\n` or `\r\n`
 - Multiple commands on one line separated by `;`
@@ -192,7 +193,7 @@ which the manual's 1xx codes match exactly.
 ## Startup
 
 ```bash
-python server.py [--port 4000] [--fs-root /tmp/tds5000b_mock]
+python server.py [--host 127.0.0.1] [--port 4000] [--fs-root /tmp/tds5000b_mock]
 ```
 
 - If `--fs-root` omitted: create a `tempfile.mkdtemp()` directory and print the path to stdout
