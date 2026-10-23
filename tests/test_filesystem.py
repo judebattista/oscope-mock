@@ -17,43 +17,43 @@ def fs(tmp_path):
     return state
 
 
-def test_absolute_path_mapping(fs, tmp_path):
+def test_virtual_to_real_absolute_path_maps_under_drive_dir(fs, tmp_path):
     result = virtual_to_real(r"C:\TekScope\Waveforms", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope", "Waveforms")
     assert result == expected
 
 
-def test_absolute_path_drive_d(fs, tmp_path):
+def test_virtual_to_real_drive_d_maps_under_d_dir(fs, tmp_path):
     result = virtual_to_real(r"D:\Data\file.txt", fs)
     expected = os.path.join(str(tmp_path), "D", "Data", "file.txt")
     assert result == expected
 
 
-def test_relative_path_dot_backslash(fs, tmp_path):
+def test_virtual_to_real_dot_relative_path_resolves_against_cwd(fs, tmp_path):
     result = virtual_to_real(r".\newfile.txt", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope", "newfile.txt")
     assert result == expected
 
 
-def test_relative_path_no_prefix(fs, tmp_path):
+def test_virtual_to_real_implied_relative_path_resolves_against_cwd(fs, tmp_path):
     result = virtual_to_real("newfile.txt", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope", "newfile.txt")
     assert result == expected
 
 
-def test_forward_slash_separator(fs, tmp_path):
+def test_virtual_to_real_forward_slashes_map_like_backslashes(fs, tmp_path):
     result = virtual_to_real("C:/TekScope/Waveforms", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope", "Waveforms")
     assert result == expected
 
 
-def test_root_of_drive(fs, tmp_path):
+def test_virtual_to_real_single_component_path_maps_under_drive_dir(fs, tmp_path):
     result = virtual_to_real(r"C:\TekScope", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope")
     assert result == expected
 
 
-def test_cwd_changes_relative_resolution(tmp_path):
+def test_virtual_to_real_changed_cwd_resolves_relative_against_new_cwd(tmp_path):
     fs = FileSystemState(cwd=r"C:\TekScope\Waveforms", root=str(tmp_path))
     result = virtual_to_real("wfm1.wfm", fs)
     expected = os.path.join(str(tmp_path), "C", "TekScope", "Waveforms", "wfm1.wfm")
@@ -78,7 +78,7 @@ def make_dispatcher(state):
 # --- create_initial_structure ---
 
 
-def test_create_initial_structure(tmp_path):
+def test_create_initial_structure_creates_tekscope_tree(tmp_path):
     fs = make_fs_state(tmp_path)
     create_initial_structure(fs)
     for vpath in [
@@ -93,21 +93,21 @@ def test_create_initial_structure(tmp_path):
 # --- CWD ---
 
 
-def test_cwd_query_returns_default(tmp_path):
+def test_cwd_query_initially_returns_quoted_default(tmp_path):
     state = make_state(tmp_path)
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:CWD", True, [], state)
     assert resp == r'"C:\TekScope"'
 
 
-def test_cwd_set(tmp_path):
+def test_cwd_set_absolute_path_updates_cwd(tmp_path):
     state = make_state(tmp_path)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [r"C:\TekScope\Waveforms"], state)
     assert state.filesystem.cwd == r"C:\TekScope\Waveforms"
 
 
-def test_cwd_query_after_set(tmp_path):
+def test_cwd_query_after_set_returns_quoted_new_cwd(tmp_path):
     state = make_state(tmp_path)
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:CWD", False, [r"C:\TekScope\Waveforms"], state)
@@ -118,7 +118,7 @@ def test_cwd_query_after_set(tmp_path):
 # --- DIR? ---
 
 
-def test_dir_query_empty_dir(tmp_path):
+def test_dir_query_includes_dot_entries(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -128,7 +128,7 @@ def test_dir_query_empty_dir(tmp_path):
     assert '".."' in resp
 
 
-def test_dir_query_lists_files(tmp_path):
+def test_dir_query_with_file_lists_quoted_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     # Create a test file in CWD
@@ -139,7 +139,7 @@ def test_dir_query_lists_files(tmp_path):
     assert '"test.wfm"' in resp
 
 
-def test_filesystem_query_alias(tmp_path):
+def test_filesystem_query_matches_dir_query(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -151,7 +151,7 @@ def test_filesystem_query_alias(tmp_path):
 # --- MKDir ---
 
 
-def test_mkdir_creates_directory(tmp_path):
+def test_mkdir_new_path_creates_directory(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -159,7 +159,7 @@ def test_mkdir_creates_directory(tmp_path):
     assert os.path.isdir(virtual_to_real(r"C:\TekScope\NewDir", state.filesystem))
 
 
-def test_mkdir_already_exists_pushes_2004(tmp_path):
+def test_mkdir_existing_path_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -170,7 +170,7 @@ def test_mkdir_already_exists_pushes_2004(tmp_path):
 # --- RMDir ---
 
 
-def test_rmdir_removes_empty_dir(tmp_path):
+def test_rmdir_empty_dir_removes_it(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -179,7 +179,7 @@ def test_rmdir_removes_empty_dir(tmp_path):
     assert not os.path.exists(virtual_to_real(r"C:\TekScope\Empty", state.filesystem))
 
 
-def test_rmdir_non_empty_pushes_2003(tmp_path):
+def test_rmdir_non_empty_dir_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -192,7 +192,7 @@ def test_rmdir_non_empty_pushes_2003(tmp_path):
 # --- DELEte ---
 
 
-def test_delete_removes_file(tmp_path):
+def test_delete_existing_file_removes_it(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
@@ -203,7 +203,7 @@ def test_delete_removes_file(tmp_path):
     assert not os.path.exists(fpath)
 
 
-def test_delete_missing_file_pushes_2002(tmp_path):
+def test_delete_missing_file_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -214,7 +214,7 @@ def test_delete_missing_file_pushes_2002(tmp_path):
 # --- RENAme ---
 
 
-def test_rename_file(tmp_path):
+def test_rename_existing_file_moves_it(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
@@ -225,7 +225,7 @@ def test_rename_file(tmp_path):
     assert os.path.exists(os.path.join(real, "new.wfm"))
 
 
-def test_rename_missing_pushes_2002(tmp_path):
+def test_rename_missing_file_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -238,7 +238,7 @@ def test_rename_missing_pushes_2002(tmp_path):
 # --- COPy ---
 
 
-def test_copy_file(tmp_path):
+def test_copy_existing_file_duplicates_contents(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
@@ -252,7 +252,7 @@ def test_copy_file(tmp_path):
     assert open(dst).read() == "data"
 
 
-def test_copy_missing_pushes_2002(tmp_path):
+def test_copy_missing_file_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -263,7 +263,7 @@ def test_copy_missing_pushes_2002(tmp_path):
 # --- READFile / PRInt ---
 
 
-def test_readfile_returns_bytes(tmp_path):
+def test_readfile_existing_file_returns_raw_bytes(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
@@ -275,7 +275,7 @@ def test_readfile_returns_bytes(tmp_path):
     assert resp == b"\x00\x01\x02\x03"
 
 
-def test_print_identical_to_readfile(tmp_path):
+def test_print_existing_file_returns_same_bytes_as_readfile(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
@@ -287,7 +287,7 @@ def test_print_identical_to_readfile(tmp_path):
     assert resp == b"hello"
 
 
-def test_readfile_missing_pushes_2002(tmp_path):
+def test_readfile_missing_file_pushes_error_and_returns_none(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -299,7 +299,7 @@ def test_readfile_missing_pushes_2002(tmp_path):
 # --- WRITEFile ---
 
 
-def test_writefile_creates_file(tmp_path):
+def test_writefile_block_data_creates_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -309,7 +309,7 @@ def test_writefile_creates_file(tmp_path):
     assert open(real, "rb").read() == b"\xde\xad\xbe\xef"
 
 
-def test_writefile_overwrites_existing(tmp_path):
+def test_writefile_existing_file_overwrites_contents(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
@@ -319,7 +319,7 @@ def test_writefile_overwrites_existing(tmp_path):
     assert open(real, "rb").read() == b"second"
 
 
-def test_writefile_missing_parent_pushes_2002(tmp_path):
+def test_writefile_missing_parent_dir_pushes_error(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)

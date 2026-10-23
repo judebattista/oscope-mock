@@ -6,7 +6,7 @@ def make_state():
     return InstrumentState()
 
 
-def test_dispatch_known_command():
+def test_dispatch_registered_command_returns_handler_response():
     d = Dispatcher()
     d.register("PING", lambda query, args, state: "PONG")
     state = make_state()
@@ -14,7 +14,7 @@ def test_dispatch_known_command():
     assert result == "PONG"
 
 
-def test_dispatch_known_query():
+def test_dispatch_registered_query_returns_handler_response():
     d = Dispatcher()
     d.register("PING?", lambda query, args, state: "PONG")
     state = make_state()
@@ -22,7 +22,7 @@ def test_dispatch_known_query():
     assert result == "PONG"
 
 
-def test_dispatch_no_response_command():
+def test_dispatch_handler_without_response_returns_none():
     d = Dispatcher()
     d.register("NOP", lambda query, args, state: None)
     state = make_state()
@@ -30,7 +30,7 @@ def test_dispatch_no_response_command():
     assert result is None
 
 
-def test_dispatch_unknown_command_pushes_error():
+def test_dispatch_unknown_command_pushes_command_header_error():
     d = Dispatcher()
     state = make_state()
     result = d.dispatch("UNKNOWN", False, [], state)
@@ -38,14 +38,14 @@ def test_dispatch_unknown_command_pushes_error():
     assert 110 in state.event_queue
 
 
-def test_dispatch_unknown_command_sets_esr_bit3():
+def test_dispatch_unknown_command_sets_esr_error_bit():
     d = Dispatcher()
     state = make_state()
     d.dispatch("UNKNOWN", False, [], state)
     assert state.esr & 0x08  # bit 3
 
 
-def test_dispatch_passes_args_and_state():
+def test_dispatch_registered_command_passes_query_args_and_state():
     d = Dispatcher()
     received = {}
 

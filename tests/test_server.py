@@ -57,18 +57,18 @@ def send_recv(addr, command: str) -> str:
         return resp.decode().rstrip("\n")
 
 
-def test_idn(server_addr):
+def test_server_idn_query_with_headers_on_returns_prefixed_identity(server_addr):
     resp = send_recv(server_addr, "*IDN?")
     assert resp == ":*IDN TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
 
 
-def test_cwd_query(server_addr):
+def test_server_cwd_query_returns_default_cwd(server_addr):
     resp = send_recv(server_addr, "FILESystem:CWD?")
     assert ":FILESYSTEM:CWD" in resp
     assert "TekScope" in resp
 
 
-def test_mkdir_and_dir(server_addr):
+def test_server_mkdir_then_dir_lists_new_directory(server_addr):
     with socket.create_connection(server_addr, timeout=3) as sock:
         sock.sendall(b'FILESYSTEM:MKDIR "C:\\TekScope\\IntTest"\n')
         sock.sendall(b'FILESYSTEM:CWD "C:\\TekScope"\n')
@@ -82,7 +82,7 @@ def test_mkdir_and_dir(server_addr):
     assert b"IntTest" in resp
 
 
-def test_hdr_off_idn(server_addr):
+def test_server_hdr_off_idn_returns_bare_identity(server_addr):
     # Use a fresh connection to avoid state pollution from other tests
     with socket.create_connection(server_addr, timeout=3) as sock:
         sock.sendall(b"HDR OFF\n")
@@ -97,7 +97,7 @@ def test_hdr_off_idn(server_addr):
     assert resp.decode().strip() == "TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
 
 
-def test_writefile_readfile(server_addr):
+def test_server_writefile_then_readfile_returns_payload(server_addr):
     payload = b"WAVEFORM_DATA"
     # IEEE 488.2 definite-length block: #<n><len><data>
     # len(payload) == 13 → two digits → use #2
@@ -125,7 +125,7 @@ def test_writefile_readfile(server_addr):
     assert payload in resp
 
 
-def test_unknown_command_no_response(server_addr):
+def test_server_unknown_command_sends_no_response(server_addr):
     with socket.create_connection(server_addr, timeout=2) as sock:
         sock.sendall(b"ACQUIRE:NUMAVG 4\n")
         sock.settimeout(0.5)
