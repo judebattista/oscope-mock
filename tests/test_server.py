@@ -57,6 +57,23 @@ def send_recv(addr, command: str) -> str:
         return resp.decode().rstrip("\n")
 
 
+def read_until_idle(sock: socket.socket, idle: float = 0.3) -> bytes:
+    """Collect bytes until the server goes quiet, for responses with no terminator."""
+    sock.settimeout(idle)
+    data = b""
+    try:
+        while chunk := sock.recv(65536):
+            data += chunk
+    except TimeoutError:
+        pass
+    return data
+
+
+def ieee_block(data: bytes) -> bytes:
+    length = str(len(data)).encode()
+    return b"#" + str(len(length)).encode() + length + data
+
+
 def test_server_idn_query_with_headers_on_returns_prefixed_identity(server_addr):
     resp = send_recv(server_addr, "*IDN?")
     assert resp == ":*IDN TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
@@ -142,3 +159,35 @@ def test_parse_args_without_host_binds_loopback_only():
 
 def test_parse_args_host_option_sets_bind_address():
     assert parse_args(["--host", "0.0.0.0"]).host == "0.0.0.0"
+
+
+def test_server_writefile_block_with_newline_semicolon_and_spaces_roundtrips(server_addr):
+    payload = b"line1\nline2;semi  \n"
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(b'FILESYSTEM:WRITEFILE "C:\\TekScope\\nl.txt",' + ieee_block(payload) + b"\n")
+        sock.sendall(b'FILESYSTEM:READFILE "C:\\TekScope\\nl.txt",GPIb\n')
+        assert read_until_idle(sock) == payload
+
+
+def test_server_block_split_across_packets_is_reassembled(server_addr):
+    payload = bytes(range(256)) * 4
+    message = b'FILESYSTEM:WRITEFILE "C:\\TekScope\\split.bin",' + ieee_block(payload) + b"\n"
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(message[:300])
+        time.sleep(0.1)
+        sock.sendall(message[300:])
+        sock.sendall(b'FILESYSTEM:READFILE "C:\\TekScope\\split.bin",GPIb\n')
+        assert read_until_idle(sock) == payload
+
+
+def test_server_semicolon_inside_quoted_path_is_not_a_separator(server_addr):
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(b'HEADer 0;FILESYSTEM:MKDIR "C:\\TekScope\\a;b"\n')
+        sock.sendall(b'FILESYSTEM:CWD "C:\\TekScope\\a;b";FILESYSTEM:CWD?\n')
+        assert read_until_idle(sock) == b'"C:\\TekScope\\a;b"\n'
+
+
+def test_server_hash_inside_quoted_path_does_not_swallow_next_command(server_addr):
+    with socket.create_connection(server_addr, timeout=3) as sock:
+        sock.sendall(b'HEADer 0;FILESYSTEM:MKDIR "C:\\TekScope\\run#19"\n*OPC?\n')
+        assert read_until_idle(sock) == b"1\n"

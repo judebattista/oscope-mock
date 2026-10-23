@@ -45,11 +45,14 @@ oscope-mock/
 SCPI mnemonics have a long form and a short form. The short form is the ALL-CAPS prefix of the mnemonic (e.g. `FILESystem` → long `FILESYSTEM`, short `FILE`). Both are valid; matching is case-insensitive.
 
 **Pipeline:**
-1. Split input on `;` → list of raw command strings
-2. For each: split on first whitespace → `(header, args_string)`
-3. Split header on `:` → node list; strip trailing `?` → query flag
-4. Resolve each node against known long/short forms → canonical uppercase key
-5. Parse `args_string`: strip surrounding quotes, handle IEEE 488.2 block data
+1. `split_message(buffer)` — the server accumulates raw bytes and splits off each complete
+   message at its terminating newline. Newlines inside definite-length block data do not
+   terminate; an incomplete block or block header waits for more bytes.
+2. `split_units(message)` — split on `;` outside quoted strings and block data
+3. `parse_unit(unit)` — split on first whitespace → `(header, args_string)`
+4. Split header on `:` → node list; strip trailing `?` → query flag
+5. Resolve each node against known long/short forms → canonical uppercase key
+6. Parse `args_string`: strip surrounding quotes, extract IEEE 488.2 block data byte-for-byte
 
 **Block data formats (WRITEFile):**
 - Definite length: `#NDD...` where N = digits in length, D...D = byte count

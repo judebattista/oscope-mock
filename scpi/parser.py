@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import NamedTuple
 
 Arg = str | bytes
@@ -71,7 +72,6 @@ def _parse_unquoted(args_str: str, start: int) -> tuple[str, int]:
 
 def _parse_args(args_str: str) -> list[Arg]:
     """Parse a SCPI argument string into a list of strings and bytes (for block data)."""
-    args_str = args_str.strip()
     result: list[Arg] = []
     i = 0
     while i < len(args_str):
@@ -90,12 +90,14 @@ def _parse_args(args_str: str) -> list[Arg]:
     return result
 
 
-def _parse_single(raw: str) -> ParsedCommand:
-    """Parse one SCPI command string into a ParsedCommand."""
-    raw = raw.strip()
+def parse_unit(unit: bytes) -> ParsedCommand:
+    """Parse one message unit (a single ';'-separated command) into a ParsedCommand."""
+    # latin-1 maps every byte to one character, so block data survives the round trip.
+    text = unit.decode("latin-1").lstrip()
 
-    # Split header from arguments on first whitespace
-    parts = raw.split(None, 1)
+    # Split header from arguments on first whitespace; the arguments keep their trailing
+    # bytes because they may end in block data.
+    parts = text.split(None, 1)
     header = parts[0]
     args_str = parts[1] if len(parts) > 1 else ""
 
@@ -116,7 +118,84 @@ def _parse_single(raw: str) -> ParsedCommand:
     return ParsedCommand(key=key, query=query, args=_parse_args(args_str))
 
 
-def parse_line(raw: str) -> list[ParsedCommand]:
-    """Parse a raw SCPI line (possibly compound with ';') into a list of ParsedCommands."""
-    raw = raw.rstrip("\r\n")
-    return [_parse_single(cmd) for cmd in raw.split(";") if cmd.strip()]
+_NEWLINE, _QUOTE, _SEMICOLON, _HASH = b"\n"[0], b'"'[0], b";"[0], b"#"[0]
+
+
+def _quoted_end(data: bytes, start: int) -> int:
+    """Index just past the string opened at `start`; an unterminated string stops at newline."""
+    close = data.find(b'"', start + 1)
+    newline = data.find(b"\n", start + 1)
+    if close != -1 and (newline == -1 or close < newline):
+        return close + 1
+    return len(data) if newline == -1 else newline
+
+
+def _block_end(data: bytes, start: int) -> int | None:
+    """Index just past the block whose '#' is at `start`, or None if more bytes are needed.
+
+    Definite-length blocks may hold any byte, so they are skipped by their declared length. An
+    indefinite (#0) block runs to the next newline. A malformed header is skipped over here and
+    left for parse_unit to reject.
+    """
+    if start + 1 >= len(data):
+        return None
+    n_digits = data[start + 1] - ord("0")
+    if n_digits == 0:
+        newline = data.find(b"\n", start)
+        return len(data) if newline == -1 else newline
+    if not 1 <= n_digits <= 9:
+        return start + 1
+    length_end = start + 2 + n_digits
+    if length_end > len(data):
+        return None
+    length = data[start + 2 : length_end]
+    if not length.isdigit():
+        return start + 1
+    data_end = length_end + int(length)
+    return data_end if data_end <= len(data) else None
+
+
+def _scan(data: bytes) -> tuple[list[int], int | None]:
+    """Locate top-level ';' separators and the newline that ends the first message in `data`.
+
+    Quoted strings and blocks hide ';' and '#'; only block data can hide a newline. The
+    terminator is None while the message is still incomplete.
+    """
+    separators: list[int] = []
+    i = 0
+    while i < len(data):
+        byte = data[i]
+        if byte == _NEWLINE:
+            return separators, i
+        if byte == _QUOTE:
+            i = _quoted_end(data, i)
+            continue
+        if byte == _HASH:
+            end = _block_end(data, i)
+            if end is None:
+                return separators, None
+            i = end
+            continue
+        if byte == _SEMICOLON:
+            separators.append(i)
+        i += 1
+    return separators, None
+
+
+def split_message(buffer: bytes) -> tuple[bytes, bytes] | None:
+    """Split off the first complete program message, or return None if more bytes are needed.
+
+    Returns the message without its newline terminator, and the unconsumed remainder.
+    """
+    _, end = _scan(buffer)
+    if end is None:
+        return None
+    return buffer[:end], buffer[end + 1 :]
+
+
+def split_units(message: bytes) -> list[bytes]:
+    """Split a framed message into its ';'-separated message units, dropping empty ones."""
+    separators, _ = _scan(message)
+    bounds = [-1, *separators, len(message)]
+    units = [message[start + 1 : end] for start, end in pairwise(bounds)]
+    return [unit for unit in units if unit.strip()]

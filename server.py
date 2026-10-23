@@ -6,7 +6,7 @@ import tempfile
 from scpi.dispatcher import Dispatcher
 from scpi.filesystem import create_initial_structure, register_filesystem_commands
 from scpi.instrument import register_instrument_commands
-from scpi.parser import parse_line
+from scpi.parser import parse_unit, split_message, split_units
 from scpi.state import FileSystemState, InstrumentState
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -30,6 +30,18 @@ def format_response(key: str, response: str | bytes, headers: bool) -> bytes:
     return formatted.encode()
 
 
+async def _execute(
+    message: bytes, writer: asyncio.StreamWriter, dispatcher: Dispatcher, state: InstrumentState
+) -> None:
+    log.info("< %r", message[:200])
+    for unit in split_units(message):
+        cmd = parse_unit(unit)
+        response = dispatcher.dispatch(cmd.key, cmd.query, cmd.args, state)
+        if response is not None:
+            writer.write(format_response(cmd.key, response, state.headers))
+            await writer.drain()
+
+
 async def handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
@@ -38,22 +50,13 @@ async def handle_client(
 ) -> None:
     addr = writer.get_extra_info("peername")
     log.info("Connection from %s", addr)
+    buffer = b""
     try:
-        while True:
-            try:
-                line = await reader.readline()
-            except asyncio.IncompleteReadError:
-                break
-            if not line:
-                break
-            raw = line.decode("latin-1", errors="replace")
-            log.info("< %s", raw.rstrip())
-            for cmd in parse_line(raw):
-                response = dispatcher.dispatch(cmd.key, cmd.query, cmd.args, state)
-                if response is not None:
-                    data = format_response(cmd.key, response, state.headers)
-                    writer.write(data)
-                    await writer.drain()
+        while chunk := await reader.read(65536):
+            buffer += chunk
+            while (framed := split_message(buffer)) is not None:
+                message, buffer = framed
+                await _execute(message, writer, dispatcher, state)
     finally:
         log.info("Disconnected %s", addr)
         writer.close()
