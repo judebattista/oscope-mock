@@ -225,3 +225,11 @@ def test_cls_after_esr_read_discards_summarized_events():
     d.dispatch("*CLS", False, [], state)
     resp = d.dispatch("EVMSG", True, [], state)
     assert resp == '0,"No events to report; queue empty"'
+
+
+def test_hdr_nonzero_nr1_enables_headers():
+    state = make_full_state()
+    state.headers = False
+    d = make_dispatcher(state)
+    d.dispatch("HDR", False, ["5"], state)
+    assert state.headers is True

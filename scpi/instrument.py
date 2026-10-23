@@ -13,11 +13,14 @@ def _parse_bool(arg: Arg) -> bool | None:
     if not isinstance(arg, str):
         return None
     upper = arg.strip().upper()
-    if upper in ("ON", "1"):
+    if upper == "ON":
         return True
-    if upper in ("OFF", "0"):
+    if upper == "OFF":
         return False
-    return None
+    try:
+        return int(upper) != 0
+    except ValueError:
+        return None
 
 
 def _idn(query: bool, args: list[Arg], s: InstrumentState) -> Response:
