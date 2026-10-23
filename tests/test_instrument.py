@@ -1,7 +1,6 @@
-from scpi.instrument import InstrumentState, register_instrument_commands
 from scpi.dispatcher import Dispatcher
-from scpi.filesystem import FileSystemState
-import tempfile
+from scpi.instrument import register_instrument_commands
+from scpi.state import InstrumentState
 
 
 def test_default_state():
@@ -19,16 +18,13 @@ def test_event_queue_is_independent():
     assert b.event_queue == []
 
 
-def make_full_state(tmp_path=None):
-    import tempfile
-    root = str(tmp_path) if tmp_path else tempfile.mkdtemp()
-    state = InstrumentState(filesystem=FileSystemState(root=root))
-    return state
+def make_full_state():
+    return InstrumentState()
 
 
 def make_dispatcher(state):
     d = Dispatcher()
-    register_instrument_commands(d, state)
+    register_instrument_commands(d)
     return d
 
 

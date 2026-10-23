@@ -20,6 +20,7 @@ oscope-mock/
 │   ├── __init__.py
 │   ├── parser.py          # SCPI tokenizer: mnemonic resolution, compound cmds, block data
 │   ├── dispatcher.py      # routes canonical command keys to registered handlers
+│   ├── state.py           # InstrumentState + FileSystemState shared by all modules
 │   ├── filesystem.py      # all 11 FILESystem handlers + FileSystemState
 │   └── instrument.py      # *IDN?, *RST, *CLS, *ESR?, *STB?, *OPC, HDR/HEADer
 └── pyproject.toml         # stdlib-only runtime; dev tools in the `dev` dependency group
@@ -65,13 +66,13 @@ SCPI mnemonics have a long form and a short form. The short form is the ALL-CAPS
 ## Dispatcher (`scpi/dispatcher.py`)
 
 - Dict of `canonical_key → handler_function`
-- Handler signature: `handler(args: list[str], state: InstrumentState) -> str | bytes | None`
+- Handler signature: `handler(query: bool, args: list[str | bytes], state: InstrumentState) -> str | bytes | None`
 - Returns `None` for no-response commands; returns response string (or raw bytes for file contents) for queries
 - Unknown command → push error code 110 ("Command header error") onto event queue
 
 ---
 
-## Shared State (`scpi/instrument.py`)
+## Shared State (`scpi/state.py`)
 
 All handlers receive a single `InstrumentState` object:
 
@@ -85,7 +86,7 @@ class InstrumentState:
     filesystem: FileSystemState = field(default_factory=FileSystemState)
 ```
 
-`FileSystemState` is defined in `filesystem.py`; `InstrumentState` imports and composes it.
+Both dataclasses live in `state.py` so the dispatcher and command modules can share them without importing each other.
 
 ## Instrument Commands (`scpi/instrument.py`)
 

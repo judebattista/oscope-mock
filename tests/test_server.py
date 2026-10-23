@@ -1,18 +1,18 @@
 import asyncio
 import socket
-import time
 import threading
+import time
+
 import pytest
 
-from scpi.dispatcher import Dispatcher
-from scpi.filesystem import FileSystemState, create_initial_structure, register_filesystem_commands
-from scpi.instrument import InstrumentState, register_instrument_commands
-from server import handle_client
+from scpi.filesystem import create_initial_structure
+from scpi.state import FileSystemState, InstrumentState
+from server import build_dispatcher, handle_client
 
 
 def _free_port():
     with socket.socket() as s:
-        s.bind(('', 0))
+        s.bind(("", 0))
         return s.getsockname()[1]
 
 
@@ -20,13 +20,12 @@ async def _run_server(port, fs_root):
     fs = FileSystemState(root=fs_root)
     create_initial_structure(fs)
     state = InstrumentState(filesystem=fs)
-    d = Dispatcher()
-    register_instrument_commands(d, state)
-    register_filesystem_commands(d, state)
+    d = build_dispatcher()
 
     server = await asyncio.start_server(
         lambda r, w: handle_client(r, w, d, state),
-        host='127.0.0.1', port=port,
+        host="127.0.0.1",
+        port=port,
     )
     async with server:
         await server.serve_forever()
@@ -43,19 +42,19 @@ def server_addr(tmp_path_factory):
     t = threading.Thread(target=run, daemon=True)
     t.start()
     time.sleep(0.3)  # allow server to bind
-    return ('127.0.0.1', port)
+    return ("127.0.0.1", port)
 
 
 def send_recv(addr, command: str) -> str:
     with socket.create_connection(addr, timeout=3) as sock:
-        sock.sendall((command + '\n').encode())
-        resp = b''
-        while not resp.endswith(b'\n'):
+        sock.sendall((command + "\n").encode())
+        resp = b""
+        while not resp.endswith(b"\n"):
             chunk = sock.recv(4096)
             if not chunk:
                 break
             resp += chunk
-        return resp.decode().rstrip('\n')
+        return resp.decode().rstrip("\n")
 
 
 def test_idn(server_addr):
@@ -74,8 +73,8 @@ def test_mkdir_and_dir(server_addr):
         sock.sendall(b'FILESYSTEM:MKDIR "C:\\TekScope\\IntTest"\n')
         sock.sendall(b'FILESYSTEM:CWD "C:\\TekScope"\n')
         sock.sendall(b"FILESYSTEM:DIR?\n")
-        resp = b''
-        while not resp.endswith(b'\n'):
+        resp = b""
+        while not resp.endswith(b"\n"):
             chunk = sock.recv(4096)
             if not chunk:
                 break
@@ -88,8 +87,8 @@ def test_hdr_off_idn(server_addr):
     with socket.create_connection(server_addr, timeout=3) as sock:
         sock.sendall(b"HDR OFF\n")
         sock.sendall(b"*IDN?\n")
-        resp = b''
-        while not resp.endswith(b'\n'):
+        resp = b""
+        while not resp.endswith(b"\n"):
             chunk = sock.recv(4096)
             if not chunk:
                 break
@@ -105,13 +104,13 @@ def test_writefile_readfile(server_addr):
     n_digits = len(str(len(payload)))
     write_cmd = (
         f'FILESYSTEM:WRITEFILE "C:\\TekScope\\inttest.wfm",'
-        f'#{n_digits}{len(payload)}{payload.decode()}'
+        f"#{n_digits}{len(payload)}{payload.decode()}"
     )
     with socket.create_connection(server_addr, timeout=3) as sock:
-        sock.sendall((write_cmd + '\n').encode())
+        sock.sendall((write_cmd + "\n").encode())
         time.sleep(0.1)
         sock.sendall(b'FILESYSTEM:READFILE "C:\\TekScope\\inttest.wfm"\n')
-        resp = b''
+        resp = b""
         sock.settimeout(1.0)
         try:
             for _ in range(50):
@@ -121,7 +120,7 @@ def test_writefile_readfile(server_addr):
                 resp += chunk
                 if payload in resp:
                     break
-        except socket.timeout:
+        except TimeoutError:
             pass
     assert payload in resp
 
@@ -132,6 +131,6 @@ def test_unknown_command_no_response(server_addr):
         sock.settimeout(0.5)
         try:
             data = sock.recv(128)
-        except socket.timeout:
-            data = b''
-    assert data == b''  # no response for unknown command
+        except TimeoutError:
+            data = b""
+    assert data == b""  # no response for unknown command

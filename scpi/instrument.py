@@ -1,74 +1,81 @@
-# scpi/instrument.py
 from __future__ import annotations
-from dataclasses import dataclass, field
 
-
-@dataclass
-class InstrumentState:
-    headers: bool = True
-    esr: int = 0
-    stb: int = 0
-    event_queue: list = field(default_factory=list)
-    filesystem: object = field(default=None)
-
+from scpi.dispatcher import Dispatcher, Response
+from scpi.parser import Arg
+from scpi.state import InstrumentState
 
 _IDN = "TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
 
 
-def _hdr_value(val: str) -> bool:
-    upper = val.strip().upper()
+def _parse_bool(arg: Arg) -> bool | None:
+    """Parse an ON/OFF/NR1 argument; None means the value is not a valid boolean."""
+    if not isinstance(arg, str):
+        return None
+    upper = arg.strip().upper()
     if upper in ("ON", "1"):
         return True
     if upper in ("OFF", "0"):
         return False
-    raise ValueError(f"Invalid HDR value: {val!r}")
+    return None
 
 
-def register_instrument_commands(dispatcher, state: InstrumentState) -> None:
-    def idn(query, args, s):
-        return _IDN
+def _idn(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    return _IDN
 
-    def rst(query, args, s):
-        s.filesystem.cwd = r"C:\TekScope"
-        s.headers = True
-        s.event_queue.clear()
 
-    def cls(query, args, s):
-        s.esr = 0
-        s.stb = 0
-        s.event_queue.clear()
+def _rst(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    s.filesystem.cwd = r"C:\TekScope"
+    s.headers = True
+    s.event_queue.clear()
+    return None
 
-    def esr(query, args, s):
-        val = s.esr
-        s.esr = 0
-        return str(val)
 
-    def stb(query, args, s):
-        return str(s.stb)
+def _cls(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    s.esr = 0
+    s.stb = 0
+    s.event_queue.clear()
+    return None
 
-    def opc(query, args, s):
-        if query:
-            return "1"
-        s.esr |= 0x01
 
-    def hdr(query, args, s):
-        if query:
-            return "1" if s.headers else "0"
-        if args:
-            try:
-                s.headers = _hdr_value(args[0])
-            except ValueError:
-                s.event_queue.append(110)
-                s.esr |= 0x08
+def _esr(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    val = s.esr
+    s.esr = 0
+    return str(val)
 
-    dispatcher.register("*IDN?",    idn)
-    dispatcher.register("*RST",     rst)
-    dispatcher.register("*CLS",     cls)
-    dispatcher.register("*ESR?",    esr)
-    dispatcher.register("*STB?",    stb)
-    dispatcher.register("*OPC",     opc)
-    dispatcher.register("*OPC?",    opc)
-    dispatcher.register("HDR",      hdr)
-    dispatcher.register("HDR?",     hdr)
-    dispatcher.register("HEADER",   hdr)
-    dispatcher.register("HEADER?",  hdr)
+
+def _stb(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    return str(s.stb)
+
+
+def _opc(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    if query:
+        return "1"
+    s.esr |= 0x01
+    return None
+
+
+def _hdr(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    if query:
+        return "1" if s.headers else "0"
+    if not args:
+        return None
+    flag = _parse_bool(args[0])
+    if flag is None:
+        s.push_error(110)
+    else:
+        s.headers = flag
+    return None
+
+
+def register_instrument_commands(dispatcher: Dispatcher) -> None:
+    dispatcher.register("*IDN?", _idn)
+    dispatcher.register("*RST", _rst)
+    dispatcher.register("*CLS", _cls)
+    dispatcher.register("*ESR?", _esr)
+    dispatcher.register("*STB?", _stb)
+    dispatcher.register("*OPC", _opc)
+    dispatcher.register("*OPC?", _opc)
+    dispatcher.register("HDR", _hdr)
+    dispatcher.register("HDR?", _hdr)
+    dispatcher.register("HEADER", _hdr)
+    dispatcher.register("HEADER?", _hdr)

@@ -1,7 +1,14 @@
 import os
-import tempfile
+
 import pytest
-from scpi.filesystem import FileSystemState, virtual_to_real
+
+from scpi.dispatcher import Dispatcher
+from scpi.filesystem import (
+    create_initial_structure,
+    register_filesystem_commands,
+    virtual_to_real,
+)
+from scpi.state import FileSystemState, InstrumentState
 
 
 @pytest.fixture
@@ -53,16 +60,6 @@ def test_cwd_changes_relative_resolution(tmp_path):
     assert result == expected
 
 
-# --- New tests for Task 8 ---
-
-from scpi.dispatcher import Dispatcher
-from scpi.instrument import InstrumentState
-from scpi.filesystem import (
-    FileSystemState, virtual_to_real,
-    register_filesystem_commands, create_initial_structure
-)
-
-
 def make_fs_state(tmp_path):
     return FileSystemState(cwd=r"C:\TekScope", root=str(tmp_path))
 
@@ -74,21 +71,27 @@ def make_state(tmp_path):
 
 def make_dispatcher(state):
     d = Dispatcher()
-    register_filesystem_commands(d, state)
+    register_filesystem_commands(d)
     return d
 
 
 # --- create_initial_structure ---
 
+
 def test_create_initial_structure(tmp_path):
     fs = make_fs_state(tmp_path)
     create_initial_structure(fs)
-    for vpath in [r"C:\TekScope", r"C:\TekScope\Waveforms",
-                  r"C:\TekScope\Images", r"C:\TekScope\Settings"]:
+    for vpath in [
+        r"C:\TekScope",
+        r"C:\TekScope\Waveforms",
+        r"C:\TekScope\Images",
+        r"C:\TekScope\Settings",
+    ]:
         assert os.path.isdir(virtual_to_real(vpath, fs))
 
 
 # --- CWD ---
+
 
 def test_cwd_query_returns_default(tmp_path):
     state = make_state(tmp_path)
@@ -114,6 +117,7 @@ def test_cwd_query_after_set(tmp_path):
 
 # --- DIR? ---
 
+
 def test_dir_query_empty_dir(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
@@ -129,7 +133,7 @@ def test_dir_query_lists_files(tmp_path):
     create_initial_structure(state.filesystem)
     # Create a test file in CWD
     real_cwd = virtual_to_real(state.filesystem.cwd, state.filesystem)
-    open(os.path.join(real_cwd, "test.wfm"), 'w').close()
+    open(os.path.join(real_cwd, "test.wfm"), "w").close()
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:DIR", True, [], state)
     assert '"test.wfm"' in resp
@@ -145,6 +149,7 @@ def test_filesystem_query_alias(tmp_path):
 
 
 # --- MKDir ---
+
 
 def test_mkdir_creates_directory(tmp_path):
     state = make_state(tmp_path)
@@ -164,6 +169,7 @@ def test_mkdir_already_exists_pushes_2004(tmp_path):
 
 # --- RMDir ---
 
+
 def test_rmdir_removes_empty_dir(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
@@ -178,19 +184,20 @@ def test_rmdir_non_empty_pushes_2003(tmp_path):
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     real = virtual_to_real(r"C:\TekScope\Waveforms", state.filesystem)
-    open(os.path.join(real, "x.wfm"), 'w').close()
+    open(os.path.join(real, "x.wfm"), "w").close()
     d.dispatch("FILESYSTEM:RMDIR", False, [r"C:\TekScope\Waveforms"], state)
     assert 2003 in state.event_queue
 
 
 # --- DELEte ---
 
+
 def test_delete_removes_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
     fpath = os.path.join(real, "todelete.wfm")
-    open(fpath, 'w').close()
+    open(fpath, "w").close()
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:DELETE", False, [r"C:\TekScope\todelete.wfm"], state)
     assert not os.path.exists(fpath)
@@ -206,14 +213,14 @@ def test_delete_missing_file_pushes_2002(tmp_path):
 
 # --- RENAme ---
 
+
 def test_rename_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
-    open(os.path.join(real, "old.wfm"), 'w').close()
+    open(os.path.join(real, "old.wfm"), "w").close()
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:RENAME", False,
-               [r"C:\TekScope\old.wfm", r"C:\TekScope\new.wfm"], state)
+    d.dispatch("FILESYSTEM:RENAME", False, [r"C:\TekScope\old.wfm", r"C:\TekScope\new.wfm"], state)
     assert not os.path.exists(os.path.join(real, "old.wfm"))
     assert os.path.exists(os.path.join(real, "new.wfm"))
 
@@ -222,23 +229,24 @@ def test_rename_missing_pushes_2002(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:RENAME", False,
-               [r"C:\TekScope\ghost.wfm", r"C:\TekScope\new.wfm"], state)
+    d.dispatch(
+        "FILESYSTEM:RENAME", False, [r"C:\TekScope\ghost.wfm", r"C:\TekScope\new.wfm"], state
+    )
     assert 2002 in state.event_queue
 
 
 # --- COPy ---
+
 
 def test_copy_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
     src = os.path.join(real, "src.wfm")
-    with open(src, 'w') as f:
+    with open(src, "w") as f:
         f.write("data")
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:COPY", False,
-               [r"C:\TekScope\src.wfm", r"C:\TekScope\dst.wfm"], state)
+    d.dispatch("FILESYSTEM:COPY", False, [r"C:\TekScope\src.wfm", r"C:\TekScope\dst.wfm"], state)
     dst = os.path.join(real, "dst.wfm")
     assert os.path.exists(dst)
     assert open(dst).read() == "data"
@@ -248,19 +256,19 @@ def test_copy_missing_pushes_2002(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:COPY", False,
-               [r"C:\TekScope\ghost.wfm", r"C:\TekScope\dst.wfm"], state)
+    d.dispatch("FILESYSTEM:COPY", False, [r"C:\TekScope\ghost.wfm", r"C:\TekScope\dst.wfm"], state)
     assert 2002 in state.event_queue
 
 
 # --- READFile / PRInt ---
+
 
 def test_readfile_returns_bytes(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
     fpath = os.path.join(real, "wave.wfm")
-    with open(fpath, 'wb') as f:
+    with open(fpath, "wb") as f:
         f.write(b"\x00\x01\x02\x03")
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:READFILE", False, [r"C:\TekScope\wave.wfm", "GPIB"], state)
@@ -272,7 +280,7 @@ def test_print_identical_to_readfile(tmp_path):
     create_initial_structure(state.filesystem)
     real = virtual_to_real(state.filesystem.cwd, state.filesystem)
     fpath = os.path.join(real, "wave.wfm")
-    with open(fpath, 'wb') as f:
+    with open(fpath, "wb") as f:
         f.write(b"hello")
     d = make_dispatcher(state)
     resp = d.dispatch("FILESYSTEM:PRINT", False, [r"C:\TekScope\wave.wfm", "GPIB"], state)
@@ -290,27 +298,25 @@ def test_readfile_missing_pushes_2002(tmp_path):
 
 # --- WRITEFile ---
 
+
 def test_writefile_creates_file(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:WRITEFILE", False,
-               [r"C:\TekScope\out.wfm", b"\xDE\xAD\xBE\xEF"], state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\out.wfm", b"\xde\xad\xbe\xef"], state)
     real = virtual_to_real(r"C:\TekScope\out.wfm", state.filesystem)
     assert os.path.exists(real)
-    assert open(real, 'rb').read() == b"\xDE\xAD\xBE\xEF"
+    assert open(real, "rb").read() == b"\xde\xad\xbe\xef"
 
 
 def test_writefile_overwrites_existing(tmp_path):
     state = make_state(tmp_path)
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
-    d.dispatch("FILESYSTEM:WRITEFILE", False,
-               [r"C:\TekScope\out.wfm", b"first"], state)
-    d.dispatch("FILESYSTEM:WRITEFILE", False,
-               [r"C:\TekScope\out.wfm", b"second"], state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\out.wfm", b"first"], state)
+    d.dispatch("FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\out.wfm", b"second"], state)
     real = virtual_to_real(r"C:\TekScope\out.wfm", state.filesystem)
-    assert open(real, 'rb').read() == b"second"
+    assert open(real, "rb").read() == b"second"
 
 
 def test_writefile_missing_parent_pushes_2002(tmp_path):
@@ -318,6 +324,30 @@ def test_writefile_missing_parent_pushes_2002(tmp_path):
     create_initial_structure(state.filesystem)
     d = make_dispatcher(state)
     # Try to write to a directory that doesn't exist
-    d.dispatch("FILESYSTEM:WRITEFILE", False,
-               [r"C:\TekScope\NonExistentDir\file.wfm", b"data"], state)
+    d.dispatch(
+        "FILESYSTEM:WRITEFILE", False, [r"C:\TekScope\NonExistentDir\file.wfm", b"data"], state
+    )
     assert 2002 in state.event_queue
+
+
+def test_mkdir_block_data_path_pushes_command_error(tmp_path):
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:MKDIR", False, [b"C:\\TekScope\\NewDir"], state)
+    assert 110 in state.event_queue
+
+
+def test_cwd_set_block_data_path_pushes_command_error_and_keeps_cwd(tmp_path):
+    state = make_state(tmp_path)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, [b"C:\\TekScope\\Waveforms"], state)
+    assert 110 in state.event_queue
+    assert state.filesystem.cwd == r"C:\TekScope"
+
+
+def test_cwd_set_without_path_pushes_command_error(tmp_path):
+    state = make_state(tmp_path)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, [], state)
+    assert 110 in state.event_queue
