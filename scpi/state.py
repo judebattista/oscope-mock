@@ -28,7 +28,9 @@ class InstrumentState:
     headers: bool = True
     esr: int = 0
     stb: int = 0
-    event_queue: list[int] = field(default_factory=list)
+    event_queue: list[EventCode] = field(default_factory=list)
+    # Events released to EVMsg? by the most recent *ESR? read.
+    summarized_events: list[EventCode] = field(default_factory=list)
     filesystem: FileSystemState = field(default_factory=FileSystemState)
 
     def push_error(self, code: EventCode) -> None:

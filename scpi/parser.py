@@ -18,6 +18,7 @@ _MNEMONICS: list[tuple[str, str]] = [
     ("CWD", "CWD"),
     ("DELETE", "DELE"),
     ("DIR", "DIR"),
+    ("EVMSG", "EVM"),
     ("MKDIR", "MKD"),
     ("PRINT", "PRI"),
     ("READFILE", "READ"),

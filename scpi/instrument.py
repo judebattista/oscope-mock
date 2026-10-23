@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from scpi.dispatcher import Dispatcher, Response
-from scpi.events import EventCode
+from scpi.events import EventCode, message
 from scpi.parser import Arg
 from scpi.state import InstrumentState
 
@@ -35,13 +35,26 @@ def _cls(query: bool, args: list[Arg], s: InstrumentState) -> Response:
     s.esr = 0
     s.stb = 0
     s.event_queue.clear()
+    s.summarized_events.clear()
     return None
 
 
 def _esr(query: bool, args: list[Arg], s: InstrumentState) -> Response:
     val = s.esr
     s.esr = 0
+    s.summarized_events = s.event_queue
+    s.event_queue = []
     return str(val)
+
+
+def _evmsg(query: bool, args: list[Arg], s: InstrumentState) -> Response:
+    if s.summarized_events:
+        code = s.summarized_events.pop(0)
+    elif s.event_queue:
+        code = EventCode.NEW_EVENTS_PENDING
+    else:
+        code = EventCode.QUEUE_EMPTY
+    return f'{code.value},"{message(code)}"'
 
 
 def _stb(query: bool, args: list[Arg], s: InstrumentState) -> Response:
@@ -73,6 +86,7 @@ def register_instrument_commands(dispatcher: Dispatcher) -> None:
     dispatcher.register("*RST", _rst)
     dispatcher.register("*CLS", _cls)
     dispatcher.register("*ESR?", _esr)
+    dispatcher.register("EVMSG?", _evmsg)
     dispatcher.register("*STB?", _stb)
     dispatcher.register("*OPC", _opc)
     dispatcher.register("*OPC?", _opc)

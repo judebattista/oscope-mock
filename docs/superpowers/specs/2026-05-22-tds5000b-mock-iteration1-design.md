@@ -97,7 +97,8 @@ Minimal IEEE 488.2 required commands:
 | `*IDN?` | `TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B` | Fixed identity string |
 | `*RST` | none | Reset CWD to `C:\TekScope`, clear error queue |
 | `*CLS` | none | Clear status registers + error queue |
-| `*ESR?` | ESR byte (0–255) | Returns and clears Event Status Register |
+| `*ESR?` | ESR byte (0–255) | Returns and clears Event Status Register; releases queued events to `EVMsg?` |
+| `EVMsg?` | `<code>,"<message>"` | Pops one event released by the last `*ESR?`; `1,...` if events await an `*ESR?` read, `0,...` if none |
 | `*STB?` | Status byte | Returns Status Byte Register |
 | `*OPC` | none | Set OPC bit in ESR |
 | `*OPC?` | `1` | Synchronization query |

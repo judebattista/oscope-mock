@@ -168,3 +168,60 @@ def test_rst_with_headers_off_restores_headers_on():
     d = make_dispatcher(state)
     d.dispatch("*RST", False, [], state)
     assert state.headers is True
+
+
+def test_evmsg_query_after_esr_read_returns_code_and_message():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    state.push_error(EventCode.COMMAND_HEADER_ERROR)
+    d.dispatch("*ESR", True, [], state)
+    resp = d.dispatch("EVMSG", True, [], state)
+    assert resp == '110,"Command header error"'
+
+
+def test_evmsg_query_after_reading_event_reports_queue_empty():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    state.push_error(EventCode.COMMAND_HEADER_ERROR)
+    d.dispatch("*ESR", True, [], state)
+    d.dispatch("EVMSG", True, [], state)
+    resp = d.dispatch("EVMSG", True, [], state)
+    assert resp == '0,"No events to report; queue empty"'
+
+
+def test_evmsg_query_without_esr_read_reports_new_events_pending():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    state.push_error(EventCode.COMMAND_HEADER_ERROR)
+    resp = d.dispatch("EVMSG", True, [], state)
+    assert resp == '1,"No events to report; new events pending *ESR?"'
+
+
+def test_evmsg_query_no_events_reports_queue_empty():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    resp = d.dispatch("EVMSG", True, [], state)
+    assert resp == '0,"No events to report; queue empty"'
+
+
+def test_esr_query_discards_events_summarized_by_previous_read():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    state.push_error(EventCode.COMMAND_HEADER_ERROR)
+    d.dispatch("*ESR", True, [], state)
+    state.push_error(EventCode.FILE_NAME_NOT_FOUND)
+    d.dispatch("*ESR", True, [], state)
+    first = d.dispatch("EVMSG", True, [], state)
+    second = d.dispatch("EVMSG", True, [], state)
+    assert first == '256,"File name not found"'
+    assert second == '0,"No events to report; queue empty"'
+
+
+def test_cls_after_esr_read_discards_summarized_events():
+    state = make_full_state()
+    d = make_dispatcher(state)
+    state.push_error(EventCode.COMMAND_HEADER_ERROR)
+    d.dispatch("*ESR", True, [], state)
+    d.dispatch("*CLS", False, [], state)
+    resp = d.dispatch("EVMSG", True, [], state)
+    assert resp == '0,"No events to report; queue empty"'
