@@ -3,7 +3,7 @@ from __future__ import annotations
 from scpi.dispatcher import Dispatcher, Response
 from scpi.events import EventCode, message
 from scpi.parser import Arg
-from scpi.state import InstrumentState
+from scpi.state import DEFAULT_CWD, InstrumentState
 
 _IDN = "TEKTRONIX,TDS5054B,0,CF:91.1CT FV:v2.00 TDS5054B"
 
@@ -28,7 +28,7 @@ def _idn(query: bool, args: list[Arg], s: InstrumentState) -> Response:
 
 
 def _rst(query: bool, args: list[Arg], s: InstrumentState) -> Response:
-    s.filesystem.cwd = r"C:\TekScope"
+    s.filesystem.cwd = DEFAULT_CWD
     s.headers = True
     s.event_queue.clear()
     return None

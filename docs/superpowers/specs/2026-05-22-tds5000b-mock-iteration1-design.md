@@ -147,6 +147,9 @@ Rules:
   the drive root (as on Windows), so no path can escape `{root}`
 - A path starting with `\` and no drive letter resolves against the CWD's drive
 
+If the CWD no longer exists (for example after `RMDir` of the CWD), the next FILESystem
+command first resets it to `C:\TekScope`, as the manual describes.
+
 ### Initial Directory Structure (created at startup)
 
 ```

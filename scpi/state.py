@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 
 from scpi.events import EventCode
 
+DEFAULT_CWD = r"C:\TekScope"
+
 _CME_BIT = 0x20  # Command Error, ESR bit 5
 _EXE_BIT = 0x10  # Execution Error, ESR bit 4
 
@@ -19,7 +21,7 @@ def _esr_bit(code: EventCode) -> int:
 
 @dataclass
 class FileSystemState:
-    cwd: str = r"C:\TekScope"
+    cwd: str = DEFAULT_CWD
     root: str = ""
 
 

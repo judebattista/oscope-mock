@@ -6,10 +6,10 @@ import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from scpi.dispatcher import Dispatcher, Response
+from scpi.dispatcher import Dispatcher, Handler, Response
 from scpi.events import EventCode
 from scpi.parser import Arg
-from scpi.state import FileSystemState, InstrumentState
+from scpi.state import DEFAULT_CWD, FileSystemState, InstrumentState
 
 
 def _normalize(components: list[str]) -> list[str]:
@@ -62,7 +62,7 @@ def virtual_to_real(vpath: str, fs: FileSystemState) -> str:
 def create_initial_structure(fs: FileSystemState) -> None:
     """Create the startup virtual directory tree on the real host filesystem."""
     for vpath in [
-        r"C:\TekScope",
+        DEFAULT_CWD,
         r"C:\TekScope\Waveforms",
         r"C:\TekScope\Images",
         r"C:\TekScope\Settings",
@@ -208,16 +208,34 @@ def _write_file_handler(query: bool, args: list[Arg], state: InstrumentState) ->
     return None
 
 
+def _resetting_deleted_cwd(handler: Handler) -> Handler:
+    """Apply the manual's rule: a deleted CWD reverts to the default on the next command."""
+
+    def wrapped(query: bool, args: list[Arg], state: InstrumentState) -> Response:
+        fs = state.filesystem
+        if not os.path.isdir(virtual_to_real(fs.cwd, fs)):
+            fs.cwd = DEFAULT_CWD
+        return handler(query, args, state)
+
+    return wrapped
+
+
+_HANDLERS: dict[str, Handler] = {
+    "FILESYSTEM:CWD": _cwd_handler,
+    "FILESYSTEM:CWD?": _cwd_handler,
+    "FILESYSTEM:DIR?": _dir_query,
+    "FILESYSTEM?": _dir_query,
+    "FILESYSTEM:MKDIR": _mkdir_handler,
+    "FILESYSTEM:RMDIR": _rmdir_handler,
+    "FILESYSTEM:DELETE": _delete_handler,
+    "FILESYSTEM:RENAME": _rename_handler,
+    "FILESYSTEM:COPY": _copy_handler,
+    "FILESYSTEM:READFILE": _read_file_handler,
+    "FILESYSTEM:PRINT": _read_file_handler,
+    "FILESYSTEM:WRITEFILE": _write_file_handler,
+}
+
+
 def register_filesystem_commands(dispatcher: Dispatcher) -> None:
-    dispatcher.register("FILESYSTEM:CWD", _cwd_handler)
-    dispatcher.register("FILESYSTEM:CWD?", _cwd_handler)
-    dispatcher.register("FILESYSTEM:DIR?", _dir_query)
-    dispatcher.register("FILESYSTEM?", _dir_query)
-    dispatcher.register("FILESYSTEM:MKDIR", _mkdir_handler)
-    dispatcher.register("FILESYSTEM:RMDIR", _rmdir_handler)
-    dispatcher.register("FILESYSTEM:DELETE", _delete_handler)
-    dispatcher.register("FILESYSTEM:RENAME", _rename_handler)
-    dispatcher.register("FILESYSTEM:COPY", _copy_handler)
-    dispatcher.register("FILESYSTEM:READFILE", _read_file_handler)
-    dispatcher.register("FILESYSTEM:PRINT", _read_file_handler)
-    dispatcher.register("FILESYSTEM:WRITEFILE", _write_file_handler)
+    for key, handler in _HANDLERS.items():
+        dispatcher.register(key, _resetting_deleted_cwd(handler))

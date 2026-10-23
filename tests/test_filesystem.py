@@ -534,3 +534,15 @@ def test_mkdir_path_with_nul_byte_pushes_file_name_error(tmp_path):
     d = make_dispatcher(state)
     d.dispatch("FILESYSTEM:MKDIR", False, ["bad\x00name"], state)
     assert EventCode.FILE_NAME_ERROR in state.event_queue
+
+
+def test_dir_query_after_cwd_removed_resets_cwd_to_default(tmp_path):
+    # Manual: deleting the CWD resets it to C:\TekScope on the next file system command.
+    state = make_state(tmp_path)
+    create_initial_structure(state.filesystem)
+    d = make_dispatcher(state)
+    d.dispatch("FILESYSTEM:CWD", False, [r"C:\TekScope\Images"], state)
+    d.dispatch("FILESYSTEM:RMDIR", False, [r"C:\TekScope\Images"], state)
+    resp = d.dispatch("FILESYSTEM:DIR", True, [], state)
+    assert state.filesystem.cwd == r"C:\TekScope"
+    assert resp == '".","..","Settings","Waveforms"'
